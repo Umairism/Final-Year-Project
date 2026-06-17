@@ -1,0 +1,178 @@
+@startuml HealSense_API_Core_Routes
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense: FastAPI Core Routes & Endpoint Hierarchy
+
+package "API Gateway & Middleware" as gateway {
+    component "Authentication Middleware\n(JWT verification)" as auth_mid
+    component "CORS & Security Headers\n(Rate limiting)" as cors
+    component "Request/Response Logging\n(Structured logs)" as logging
+}
+
+package "API v1 Routes (/api/v1/)" as apiv1 {
+    
+    package "Authentication Routes (/auth/)" as auth {
+        component "POST /auth/register\n(Sign up new user)" as auth_reg
+        component "POST /auth/login\n(JWT token generation)" as auth_login
+        component "POST /auth/refresh\n(Refresh expired token)" as auth_refresh
+        component "POST /auth/logout\n(Invalidate session)" as auth_logout
+    }
+    
+    package "Patient Routes (/patients/)" as patients {
+        component "GET /patients/\n(List all patients)" as pat_list
+        component "POST /patients/\n(Create new profile)" as pat_create
+        component "GET /patients/{id}\n(Patient details)" as pat_get
+        component "PUT /patients/{id}\n(Update profile)" as pat_update
+        component "GET /patients/{id}/vitals\n(Historical vitals)" as pat_vitals
+        component "GET /patients/{id}/alerts\n(Alert history)" as pat_alerts
+    }
+    
+    package "Device Routes (/devices/)" as devices {
+        component "GET /devices/\n(List user devices)" as dev_list
+        component "POST /devices/\n(Register new device)" as dev_register
+        component "PUT /devices/{id}\n(Update device info)" as dev_update
+        component "DELETE /devices/{id}\n(Remove device)" as dev_delete
+        component "POST /devices/{id}/pair\n(Pairing workflow)" as dev_pair
+        component "GET /devices/{id}/status\n(Device online/offline)" as dev_status
+    }
+    
+    package "Vital Signs Routes (/vitals/)" as vitals {
+        component "POST /vitals/\n(Submit reading)" as vital_submit
+        component "GET /vitals/{id}\n(Single vital record)" as vital_get
+        component "GET /vitals/patient/{id}\n(Patient vitals stream)" as vital_patient
+        component "GET /vitals/latest/{id}\n(Most recent value)" as vital_latest
+        component "POST /vitals/bulk\n(Batch submission)" as vital_bulk
+    }
+    
+    package "Alerts Routes (/alerts/)" as alerts {
+        component "GET /alerts/\n(Alert list)" as alert_list
+        component "GET /alerts/{id}\n(Alert details)" as alert_get
+        component "POST /alerts/{id}/acknowledge\n(Mark reviewed)" as alert_ack
+        component "POST /alerts/{id}/dismiss\n(Clear false alarm)" as alert_dismiss
+        component "POST /alerts/{id}/resolve\n(Issue fixed)" as alert_resolve
+        component "GET /alerts/active\n(Critical alerts)" as alert_active
+    }
+    
+    package "AI/Prediction Routes (/ai/)" as ai {
+        component "POST /ai/predict\n(Risk classification)" as ai_predict
+        component "GET /ai/risk/{id}\n(Patient risk score)" as ai_risk
+        component "POST /ai/chat\n(Doctor chat with AI)" as ai_chat
+        component "POST /ai/analyze\n(Trend analysis)" as ai_analyze
+    }
+    
+    package "Real-time Routes (/realtime/)" as realtime {
+        component "WebSocket /ws/{user_id}\n(Live vital stream)" as ws_vitals
+        component "WebSocket /ws/alerts\n(Alert notifications)" as ws_alerts
+        component "WebSocket /ws/provider\n(Provider dashboard)" as ws_provider
+    }
+    
+    package "Provider Routes (/provider/)" as provider {
+        component "GET /provider/patients\n(Assigned patients)" as prov_patients
+        component "POST /provider/check\n(Verify provider)" as prov_check
+        component "GET /provider/emergencies\n(Critical cases)" as prov_emergencies
+        component "POST /provider/notes/{id}\n(Add note to alert)" as prov_notes
+    }
+    
+    package "Health & Status Routes (/)" as health {
+        component "GET /health\n(Service health check)" as health_check
+        component "GET /metrics\n(Prometheus metrics)" as metrics
+        component "GET /docs\n(Swagger UI)" as swagger
+        component "GET /redoc\n(ReDoc)" as redoc
+    }
+}
+
+package "Request/Response Handling" as handlers {
+    component "Request Validation\n(Pydantic models)" as validation
+    component "Response Serialization\n(JSON format)" as serialization
+    component "Error Handling\n(Exception handlers)" as errors
+}
+
+' Gateway flow
+cors --> auth_mid
+auth_mid --> validation
+validation --> serialization
+serialization --> errors
+
+' Route organization
+auth --> handlers
+patients --> handlers
+devices --> handlers
+vitals --> handlers
+alerts --> handlers
+ai --> handlers
+realtime --> handlers
+provider --> handlers
+health --> handlers
+
+note right of auth
+AUTHENTICATION:
+Methods: JWT, OAuth2
+Token expiry: 24h
+Refresh token: 7d
+Scopes: admin, doctor,
+        patient, family
+end note
+
+note right of patients
+PATIENT ENDPOINTS:
+POST return: {id, token}
+GET return: {patientData}
+PUT fields: name, DOB,
+  medical_history,
+  emergency_contacts
+end note
+
+note right of vitals
+VITAL SUBMISSION:
+Fields: patient_id, device_id,
+  hr, spo2, temp, 
+  systolic_bp, diastolic_bp,
+  resp_rate, timestamp
+Frequency: 30-60 sec
+end note
+
+note right of alerts
+ALERT LEVELS:
+LOW: Minor deviation
+MEDIUM: Needs attention
+HIGH: Doctor alert
+CRITICAL: Auto-escalate
+end note
+
+note right of ai
+AI ENDPOINTS:
+/predict input: vital_sequence
+  output: risk_score (0-1)
+/chat: multimodal with
+  OpenAI/Gemini API
+/analyze: Trend ML model
+end note
+
+note right of realtime
+WEBSOCKET TOPICS:
+Message format: JSON
+Authentication: JWT in URL
+Reconnect: Exponential backoff
+Ping interval: 30 seconds
+end note
+
+note right of health
+HEALTH CHECK FIELDS:
+- Database: Connected
+- Redis: Response time
+- ML Model: Loaded
+- API: Response time
+- Status: UP/DEGRADED/DOWN
+end note
+
+note bottom of handlers
+STANDARD RESPONSE:
+{
+  "status": "success",
+  "data": {...},
+  "error": null,
+  "timestamp": "ISO8601"
+}
+end note
+
+@enduml

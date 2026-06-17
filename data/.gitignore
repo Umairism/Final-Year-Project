@@ -1,0 +1,50 @@
+# Dataset .gitignore
+# Exclude large datasets but keep directory structure and documentation
+
+# Exclude large dataset files
+*.csv
+*.dat
+*.hea
+*.mat
+*.json
+*.zip
+*.tar.gz
+*.pkl
+*.h5
+*.hdf5
+
+# Keep documentation
+!README.md
+!NOTE.md
+!INSTRUCTIONS.md
+!DOWNLOAD_INSTRUCTIONS.md
+!*_info.txt
+
+# Keep small metadata files
+!*.names
+
+# Keep directory structure
+!.gitkeep
+
+# Exclude specific large datasets
+physionet_bidmc/*.dat
+physionet_bidmc/*.hea
+kaggle_health_data/**/*.csv
+synthetic/*.csv
+
+# Keep processed data summaries (if small)
+processed/*_summary.txt
+processed/*_stats.json
+
+# Exclude model files (will be in data/models)
+models/*.h5
+models/*.pkl
+models/*.pth
+
+# Exclude logs
+logs/*.log
+logs/tensorboard/**/*
+
+# OS files
+.DS_Store
+Thumbs.db

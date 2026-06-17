@@ -1,0 +1,2 @@
+# This directory stores trained model checkpoints (.h5 files)
+# Files are ignored by .gitignore to keep repo size small

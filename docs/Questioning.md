@@ -1,0 +1,104 @@
+# Viva Defense Simulation Guide
+
+## SECTION A: Full System Questions
+
+**Q1: Why did you choose a hybrid architecture instead of a pure end-to-end ML model?**
+* Pure ML models lack the strict interpretability and safety guarantees required in clinical contexts.
+* A hybrid architecture allows the deterministic engine to serve as an absolute safety constraint, ensuring critical physiological thresholds cannot be ignored by probabilistic errors.
+
+**Q2: Why not just use end-to-end ML?**
+* End-to-end ML models function as black boxes. In medical decision support, if an algorithm predicts an incorrect state, it is difficult to trace *why*. The hybrid approach separates concerns: the ML handles temporal pattern mimicry, while the rule system enforces known physiological bounds.
+
+**Q3: Why do deterministic rules exist in your system?**
+* They provide a safety override. If a patient breaches established critical guidelines (e.g., WHO guidelines for hypoxia), the system flags it instantly, circumventing any potential ML underestimation.
+
+---
+
+## SECTION B: Frontend Questions
+
+**Q4: How does the UI connect to the backend?**
+* Both the web and mobile interfaces communicate with the FastAPI backend via RESTful APIs. 
+* They transmit JSON payloads representing continuous patient streams to endpoints like `/fusion_risk`.
+
+**Q5: How is patient data captured?**
+* Static patient metadata and history (e.g., age, diabetes status) are captured via structured entry forms.
+* Continuous physiological telemetry is intended to be streamed dynamically (simulated via API loops in the prototype).
+
+**Q6: How is risk displayed to the user?**
+* The UI presents a clear categorical risk level (Normal, Warning, Critical) based on the fusion output.
+* Crucially, it also displays the triggered deterministic rules alongside the LLM-generated rationale paragraph to ensure explainability.
+
+---
+
+## SECTION C: Backend Questions
+
+**Q7: Explain the API structure.**
+* The backend is organized around asynchronous REST routes. Core modules include patient management endpoints and the central inference engine endpoint (`/fusion_risk`), structured tightly with Pydantic for schema validation.
+
+**Q8: Why did you choose FastAPI?**
+* FastAPI provides high performance, automatic OpenAPI documentation, and asynchronous capabilities out of the box. 
+* This is essential for non-blocking I/O operations, such as handling simultaneous telemetry streams and making external calls to the Gemini LLM API.
+
+**Q9: How is the fusion endpoint implemented?**
+* The `/fusion_risk` endpoint validates the Canonical Schema payload.
+* It routes data to both the Deterministic Rules Engine and the LSTM.
+* It passes both outputs into the mathematical Fusion Engine logic gate.
+* It then queries the Gemini LLM asynchronously to generate the explanation string, returning the unified JSON payload to the client.
+
+---
+
+## SECTION D: Database Questions
+
+**Q10: Why does the schema design matter so much?**
+* Schema standardization guarantees structural consistency across the deterministic boundaries.
+* Without a strict Canonical Schema, missing or malformed data could trigger unhandled exceptions or introduce artificial biases into the ML pipeline.
+
+**Q11: How is medical history stored?**
+* Medical history is stored as structured binary flags (e.g., `diabetes`, `smoking_status`) within the patient schema, preventing arbitrary free-text evaluation by the logic engine.
+
+**Q12: How is missing data handled?**
+* Absent modalities (like Temperature and BP) are explicitly encoded as `NaN` during collection.
+* At the ML ingestion layer, an explicit missing mask replaces `NaN` with a constant `-1.0` imputation, preserving the exact input width without fabricating physiological data.
+
+---
+
+## SECTION E: ML Questions
+
+**Q13: Why use an LSTM?**
+* LSTMs are explicitly designed to maintain state across time-series data. 
+* They are highly effective at capturing the temporal degradation sequences (over a 60-second sliding window) leading up to a physiological event.
+
+**Q14: What does the ML model actually learn?**
+* **Honest Answer:** The ML learns rule-constrained temporal patterns, not independent clinical truth. 
+* It is effectively trained to act as a probabilistic mimic of the deterministic engine, learning the specific sequence patterns that precede the rule-derived proxy labels.
+
+**Q15: Why not use transformers or classical ML?**
+* Classical ML (like Random Forests) struggles with complex temporal dependencies across 60 continuous timesteps without aggressive feature engineering.
+* Transformers are powerful but computationally heavier and often overkill for a 5-variable physiological time-series prototype where the primary objective is rule approximation, not complex language-like sequence attention.
+
+---
+
+## SECTION F: Evaluation Questions
+
+**Q16: Why did your evaluation report such high accuracy?**
+* The high accuracy is a direct consequence of training the ML model on proxy labels generated by the deterministic rules themselves. 
+* It confirms that the ML architecture successfully learned to replicate the deterministic boundaries, but it does not equate to perfect real-world diagnostic accuracy.
+
+**Q17: What is Cohen’s Kappa measuring here?**
+* Cohen's Kappa measures the self-consistency of the system. It quantifies how frequently the probabilistic Machine Learning proxy agrees with the deterministic safety constraint engine.
+
+**Q18: Are these results clinically valid?**
+* No. The system was evaluated on internally derived proxy labels, not external, independently verified clinical outcomes. It is architecturally valid, but not clinically validated.
+
+---
+
+## SECTION G: TRICK QUESTIONS
+
+**Q19: Is this a medical AI system?**
+* No. It is an explainable rule-constrained decision-support research prototype. It is not a medical device.
+
+**Q20: Can it be deployed in hospitals tomorrow?**
+* Absolutely not. There is no clinical deployment claim. The system lacks the rigorous, multi-center clinical trials required for healthcare deployment. It exists solely as an academic prototype.
+
+**Q21: What is the "Ground Truth" of your system?**
+* There is no independent clinical ground truth. The targets used for training and evaluation consist entirely of **proxy labels** generated by the system's own deterministic rule engine.

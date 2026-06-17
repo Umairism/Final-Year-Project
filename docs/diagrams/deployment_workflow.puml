@@ -1,0 +1,110 @@
+@startuml HealSense_Deployment_Workflow
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Complete Deployment & CI/CD Workflow
+
+Deployment_Node(dev, "Developer Environment") {
+    Container(git, "Git Repository\n(GitHub)", "Source Control", "Main, dev, feature branches")
+    Container(vscode, "VS Code / IDE", "Development Tools", "Code editing, testing, debugging")
+    Container(compose, "Docker Compose", "Local Stack", "PostgreSQL, Redis, FastAPI locally")
+}
+
+Deployment_Node(ci, "GitHub Actions CI/CD Pipeline") {
+    Container(cibuild, "1. Build Stage", "Docker Build", "test → lint → docker build")
+    Container(citest, "2. Test Stage", "Pytest / Unit Tests", "Run backend tests (85%+ coverage)")
+    Container(cilint, "3. Code Quality", "Pylint / Black", "Code style & complexity checks")
+    Container(cideploy, "4. Push to Registry", "Docker Registry", "Push image to DockerHub/ECR")
+    Container(cinotify, "5. Deploy Approval", "Manual/Auto Gate", "Notify team, await approval")
+}
+
+Deployment_Node(staging, "Staging Environment (AWS)") {
+    Container(stgapi, "FastAPI Staging", "ECS Container", "Test deployment and integration")
+    Container(stgdb, "PostgreSQL Staging", "RDS Instance", "Test data migrations")
+    Container(stgredis, "Redis Staging", "ElastiCache", "Cache and session testing")
+    Container(stgtest, "Integration Tests", "Selenium / API Tests", "Full stack validation")
+}
+
+Deployment_Node(prod, "Production Environment (AWS)") {
+    Container(prodapi, "FastAPI Production x2", "ECS Auto-Scaling", "Load balanced backend service")
+    Container(proddb, "PostgreSQL Production", "RDS (Multi-AZ)", "Automated backups, failover ready")
+    Container(prodredis, "Redis Production", "ElastiCache Cluster", "Replicated cache layer")
+    Container(cdn, "CloudFront CDN", "Global Distribution", "Frontend asset caching")
+    Container(s3, "AWS S3 Buckets", "Object Storage", "Model files, backups, logs")
+}
+
+Deployment_Node(monitoring, "Monitoring & Logging") {
+    Container(prometheus, "Prometheus", "Metrics Collection", "System and app metrics")
+    Container(grafana, "Grafana", "Visualization", "Real-time dashboards")
+    Container(cloudwatch, "CloudWatch Logs", "Log Aggregation", "API and database logs")
+    Container(alerting, "PagerDuty / SNS", "Alert Management", "Critical incident notifications")
+}
+
+Deployment_Node(database, "Database Management") {
+    Container(alembic, "Alembic Migrations", "Schema Management", "Version control for DB schema")
+    Container(backup, "Automated Backups", "Daily Snapshots", "S3 cross-region replication")
+    Container(monitoring_db, "DB Monitoring", "CloudWatch / RDS Insights", "Performance metrics")
+}
+
+Rel(vscode, git, "Code commits")
+Rel(git, cibuild, "Trigger on push")
+Rel(compose, cibuild, "Test locally first")
+
+Rel(cibuild, citest, "Run tests")
+Rel(citest, cilint, "Code quality gates")
+Rel(cilint, cideploy, "Build docker image")
+Rel(cideploy, cinotify, "Push to registry")
+
+Rel(cinotify, stgapi, "Deploy to staging")
+Rel(stgapi, stgdb, "Connection test")
+Rel(stgapi, stgredis, "Cache validation")
+Rel(stgtest, stgapi, "Integration tests")
+
+Rel(stgtest, prodapi, "Promote on success")
+Rel(prodapi, proddb, "Production DB access")
+Rel(prodapi, prodredis, "Production cache")
+Rel(prodapi, s3, "Model & asset access")
+Rel(cdn, s3, "Fetch frontend assets")
+
+Rel(prodapi, prometheus, "Expose metrics")
+Rel(proddb, cloudwatch, "Log queries")
+Rel(prometheus, grafana, "Data source")
+Rel(cloudwatch, alerting, "Anomaly detection")
+Rel(proddb, alembic, "Schema versioning")
+Rel(backup, s3, "Store snapshots")
+
+note right of cibuild
+BUILD TRIGGERS:
+- Push to main/dev
+- Pull request created
+- Manual dispatch
+- Scheduled nightly
+end note
+
+note right of citest
+TEST COVERAGE:
+- Unit tests (>85%)
+- Integration tests
+- API endpoint tests
+- Database migration tests
+end note
+
+note right of prodapi
+PRODUCTION SETUP:
+- 2+ replicas for HA
+- Auto-scaling (CPU >70%)
+- Health checks every 30s
+- Graceful shutdown (30s timeout)
+- Rolling deployments
+end note
+
+note right of monitoring
+MONITORING METRICS:
+- API response time
+- Error rates
+- Database queries
+- Disk usage
+- Memory utilization
+- Cache hit rates
+end note
+
+@enduml

@@ -1,0 +1,107 @@
+# Environment variables
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+**/.env
+**/.env.*
+**/kaggle.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+backend/venv/
+frontend/**/venv/
+
+# Node / JS / TS
+node_modules/
+frontend/**/node_modules/
+coverage/
+*.tsbuildinfo
+*.vite/
+
+# Mobile / Flutter / React Native build artifacts
+frontend/mobile-app/.dart_tool/
+frontend/mobile-app/.flutter-plugins
+frontend/mobile-app/.flutter-plugins-dependencies
+frontend/mobile-app/.packages
+frontend/mobile-app/build/
+frontend/mobile-app/android/.gradle/
+frontend/mobile-app/android/app/build/
+frontend/mobile-app/android/local.properties
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Data and generated assets
+data/raw/
+data/processed/
+*.csv
+*.data
+*.zip
+*.tar.gz
+*.parquet
+*.feather
+
+# Keep documentation and placeholders inside data folders
+!data/**/*.md
+!data/**/*.txt
+!data/**/README*
+!data/**/INSTRUCTIONS*
+!data/**/.gitkeep
+
+# Model and exported artifacts
+*.h5
+*.pkl
+*.joblib
+*.pth
+*.pt
+*.tflite
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Misc
+.fake

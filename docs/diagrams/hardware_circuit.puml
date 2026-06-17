@@ -1,0 +1,139 @@
+@startuml HealSense_Hardware_Circuit
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Hardware Circuit Schematic & Sensor Connectivity
+
+package "Power Management" as power {
+    component "5V Power Supply\n(Battery/USB/Adapter)" as psu
+    component "Voltage Regulator\n(LDO 3.3V)" as vreg
+    component "Decoupling Capacitors\n(100uF + 10uF)" as caps
+}
+
+package "Microcontroller Unit" as mcu_pkg {
+    component "ESP32\n(Main MCU)" as esp32
+}
+
+package "I2C Sensor Bus\n(Address: 0x57-0x68)" as i2c_bus {
+    component "MAX30100\nPulse Oximeter\n(HR + SpO₂)\nAddr: 0x57" as max30100
+    component "MLX90614\nIR Thermometer\n(Temperature)\nAddr: 0x5A/0x5B" as mlx90614
+    component "BMP180/BMP280\nBarometric Sensor\n(Pressure)\nAddr: 0x77" as bmp
+    component "I2C Pullup Resistors\n(4.7kΩ × SDA/SCL)" as pullups
+}
+
+package "UART Communication" as uart {
+    component "ESP32 UART0\n(RX0=GPIO3, TX0=GPIO1)" as uart_debug
+}
+
+package "Wireless Module" {
+    component "ESP32 WiFi\n(Built-in 802.11b/g/n)" as wifi
+    component "ESP32 BLE\n(Bluetooth 5.0)" as ble
+}
+
+package "Monitoring & Indicator" as monitor {
+    component "Status LED\n(GPIO27, Blue)" as led_status
+    component "Error LED\n(GPIO26, Red)" as led_error
+    component "100Ω Current Limiting\nResistor" as resistor
+}
+
+' Power connections
+psu --> vreg: 5V input
+vreg --> esp32: 3.3V output
+vreg --> caps: Stabilization
+caps --> esp32: Power supply
+
+' MCU to sensors
+esp32 --> i2c_bus: SDA (GPIO21)\nSCL (GPIO22)
+pullups --> i2c_bus: Pull SDA/SCL to 3.3V
+
+' Sensors on I2C bus
+i2c_bus --> max30100: I2C addr 0x57
+i2c_bus --> mlx90614: I2C addr 0x5A
+i2c_bus --> bmp: I2C addr 0x77
+
+' UART for debugging
+esp32 --> uart_debug: Debug output
+
+' Wireless (built-in)
+esp32 --> wifi: Integrated module
+esp32 --> ble: Integrated module
+
+' Status indicators
+esp32 --> led_status: GPIO27
+esp32 --> led_error: GPIO26
+resistor --> led_status
+resistor --> led_error
+
+note right of max30100
+MAX30100 PINOUT:
+- VCC → 3.3V
+- GND → GND
+- SDA → GPIO21
+- SCL → GPIO22
+- INT → GPIO35 (optional)
+
+Readings every 100ms
+HR: 30-240 bpm
+SpO2: 70-100%
+end note
+
+note right of mlx90614
+MLX90614 PINOUT:
+- VCC → 3.3V
+- GND → GND
+- SDA → GPIO21
+- SCL → GPIO22
+- PWM → GPIO33 (optional)
+
+Temperature: -40 to +125°C
+Accuracy: ±0.5°C
+I2C frequency: 100 kHz
+end note
+
+note right of bmp
+BMP180/280 PINOUT:
+- VCC → 3.3V
+- GND → GND
+- SDA → GPIO21
+- SCL → GPIO22
+
+Pressure: 300-1100 hPa
+Temperature: -40 to +125°C
+I2C frequency: 100 kHz
+end note
+
+note right of esp32
+ESP32 PIN MAPPING:
+GPIO1: TX0 (Debug)
+GPIO3: RX0 (Debug)
+GPIO21: SDA (I2C)
+GPIO22: SCL (I2C)
+GPIO26: Error LED
+GPIO27: Status LED
+GPIO33: PWM (optional)
+GPIO35: Interrupt input
+
+Power: 3.3V ± 10%
+Current: 80mA (WiFi active)
+                40mA (BLE only)
+end note
+
+note bottom of i2c_bus
+I2C SPECIFICATIONS:
+- Standard Mode: 100 kHz
+- Pullup: 4.7kΩ to 3.3V
+- Max devices: 127 (addr 0x00-0x7F)
+- Clock stretching: Supported
+- Multi-master: Supported
+end note
+
+note bottom of power
+POWER REQUIREMENTS:
+Input: 5V DC (USB/Battery)
+Output: 3.3V regulated
+Capacity: ≥1A for full operation
+With WiFi active: 500mA peak
+All sensors idle: 50mA
+Always-on features: <10mA
+end note
+
+@enduml

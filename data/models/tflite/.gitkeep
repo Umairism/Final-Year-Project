@@ -1,0 +1,2 @@
+# This directory stores TFLite models for mobile deployment
+# Files are ignored by .gitignore

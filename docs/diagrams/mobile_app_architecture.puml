@@ -1,0 +1,201 @@
+@startuml HealSense_Mobile_App_Architecture
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Flutter Mobile Application Architecture
+
+package "Presentation Layer - Screens & UI" as presentation {
+    component "Login Screen\n(Auth, biometric)" as login_screen
+    component "Main Dashboard\n(Vital display, graph)" as dashboard
+    component "Patient Profile\n(Health info, history)" as profile
+    component "Device Management\n(Pairing, settings)" as device_mgmt
+    component "Alerts Screen\n(Notifications, actions)" as alerts_screen
+    component "Statistics & History\n(Trends, reports)" as stats
+    component "Settings Screen\n(Preferences, logout)" as settings
+}
+
+package "Navigation & Routing" as navigation {
+    component "Go Router\n(Declarative routing)" as router
+    component "Route Guards\n(Auth checks)" as guards
+    component "Deep linking\n(Push notifications)" as deeplink
+}
+
+package "State Management" as state {
+    component "StateNotifier Providers\n(Vital stream state)" as notifier
+    component "Family Providers\n(Patient-scoped data)" as family
+    component "Caching Providers\n(User preferences)" as caching
+    component "Error State Handler" as error_handler
+}
+
+package "Service Layer - API & Integration" as services {
+    component "API Service\n(REST endpoints)" as api_service
+    component "WebSocket Manager\n(Real-time stream)" as websocket_svc
+    component "BLE Service\n(Device pairing)" as ble_svc
+    component "Firebase Auth\n(User authentication)" as firebase_auth
+    component "FCM Service\n(Push notifications)" as fcm_svc
+}
+
+package "Data Layer - Storage & Cache" as data {
+    component "SQLite Database\n(Local persistence)" as sqlite
+    component "Shared Preferences\n(Simple KV store)" as prefs
+    component "Hive Cache\n(Offline data)" as hive
+    component "Repository Pattern\n(Data access)" as repo
+}
+
+package "UI Components & Widgets" as widgets {
+    component "Vital Display Widget\n(fl_chart)" as vital_widget
+    component "Heart Rate Graph\n(Animated)" as hr_graph
+    component "SpO2 Gauge\n(Color-coded)" as spo2_gauge
+    component "Temperature Display\n(Trending ↑↓)" as temp_display
+    component "BP Chart\n(Systolic/Diastolic)" as bp_chart
+    component "Alert Badge\n(Count indicator)" as alert_badge
+    component "Shadcn UI Components\n(Buttons, modals)" as shadcn
+}
+
+package "Cross-Cutting Concerns" as crosscut {
+    component "Logging Service\n(Analytics, debugging)" as logger
+    component "Error Handler\n(Exception catching)" as error_handler2
+    component "Connectivity Monitor\n(Online/offline)" as connectivity
+    component "Background Task Manager" as background
+}
+
+' Navigation flow
+router --> guards
+guards --> login_screen
+guards --> dashboard
+
+' Dashboard routing
+dashboard --> profile
+dashboard --> device_mgmt
+dashboard --> alerts_screen
+dashboard --> stats
+dashboard --> settings
+
+' State management integration
+notifier --> dashboard
+family --> profile
+family --> alerts_screen
+caching --> settings
+error_handler --> dashboard
+
+' Service integration
+api_service --> login_screen
+firebase_auth --> login_screen
+websocket_svc --> dashboard
+websocket_svc --> alerts_screen
+ble_svc --> device_mgmt
+fcm_svc --> alerts_screen
+fcm_svc --> deeplink
+
+' Data persistence
+sqlite --> api_service
+prefs --> caching
+hive --> websocket_svc
+repo --> api_service
+
+' UI widgets
+dashboard --> vital_widget
+vital_widget --> hr_graph
+vital_widget --> spo2_gauge
+vital_widget --> temp_display
+vital_widget --> bp_chart
+alerts_screen --> alert_badge
+login_screen --> shadcn
+dashboard --> shadcn
+
+' Cross-cutting concerns
+logger --> api_service
+logger --> websocket_svc
+error_handler2 --> api_service
+connectivity --> websocket_svc
+background --> fcm_svc
+
+note right of presentation
+SCREEN ARCHITECTURE:
+- 7 main screens/pages
+- StatefulWidget for state
+- Riverpod hooks for hooks
+- Material 3 design
+- Dark mode support
+- Responsive layout
+end note
+
+note right of state
+STATE MANAGEMENT:
+Pattern: Riverpod hooks
+Updates: Every 30 seconds
+Caching: 5 minute TTL
+Invalidation: Manual/Auto
+Persistence: SQLite fallback
+end note
+
+note right of websocket_svc
+WEBSOCKET FEATURES:
+- Auto-reconnect (30s)
+- Ping/pong (every 30s)
+- Message buffering
+- Graceful shutdown
+- SSL/TLS encryption
+end note
+
+note right of ble_svc
+BLE CAPABILITIES:
+- Device scan (30s timeout)
+- Pairing workflow
+- Data streaming
+- Battery monitoring
+- Signal strength RSSI
+- Auto-reconnect on loss
+end note
+
+note right of sqlite
+LOCAL DATABASE:
+Tables: user, vitals,
+        devices, alerts,
+        preferences
+Backup: Weekly auto-backup
+Encryption: SQLCipher
+Sync: On login/periodic
+end note
+
+note right of vital_widget
+VITAL DISPLAY:
+Real-time update: <500ms
+Animation: Smooth (60fps)
+History: Last 24 hours
+Graph type: Line chart
+Color coding: Status-based
+Threshold indicators
+end note
+
+note right of router
+ROUTE STRUCTURE:
+/login → dashboard
+/dashboard → (nav)
+/patient/:id
+/device/:id
+/alerts/:id
+/settings
+Back button: Custom handling
+end note
+
+note right of fcm_svc
+FCM INTEGRATION:
+Topics: vitals, alerts, 
+        warnings, critical
+Deep linking: URL schemes
+Local notification: Fallback
+Sound: Customizable
+Silent notifications: Supported
+end note
+
+note right of logger
+ANALYTICS TRACKING:
+Events: Screen views,
+        Actions, Errors
+User properties: Age,
+  condition, device type
+Crash tracking: Enabled
+Performance monitoring
+end note
+
+@enduml

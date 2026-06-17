@@ -1,0 +1,187 @@
+@startuml IoT_Sensor_Node_Interface
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense: IoT Sensor Node Interface & Communication Protocol
+
+package "Sensor Reading Layer" as sensors {
+    component "MAX30100\nPulse Oximeter" as max30100_sensor
+    component "MLX90614\nIR Thermometer" as mlx_sensor
+    component "BMP180/280\nPressure/BP" as bmp_sensor
+}
+
+package "Data Collection & Processing" as collection {
+    component "Sensor Data Reader\n(I2C polling @100Hz)" as reader
+    component "Sample Buffer\n(60 readings × 6 params)" as buffer
+    component "Raw Data Validator\n(Range checks)" as validator
+    component "Feature Extraction\n(Mean, StdDev, Min, Max)" as feature
+}
+
+package "Data Format & Structure" as format {
+    component "JSON Payload Builder\n(HealSense Protocol)" as json_builder
+    component "Protocol Encoder\n(Compression, encryption)" as encoder
+    component "Integrity Check\n(CRC32, checksum)" as integrity
+}
+
+package "Transmission Layer" as transmission {
+    component "WiFi/BLE Selector\n(Signal quality check)" as selector
+    component "Connection Manager\n(Auto-reconnect)" as connmgr
+    component "Retry Logic\n(Exponential backoff)" as retry
+}
+
+package "Communication Protocols" as protocols {
+    component "WiFi Direct\n(TCP/IP to API)" as wifi_direct
+    component "MQTT\n(healsense/vitals/[id])" as mqtt
+    component "BLE\n(To mobile app)" as ble_proto
+}
+
+package "Backend Interface" as backend {
+    component "API Endpoint\nPOST /vitals/\n(Direct HTTP)" as api_direct
+    component "MQTT Broker\n(Redis Pub/Sub)" as mqtt_broker
+    component "WebSocket Handler\n(Real-time stream)" as websocket_handler
+}
+
+package "Error Handling & Monitoring" as errors {
+    component "Sensor Fault Detection\n(I2C errors, timeouts)" as fault_detect
+    component "Connection Loss Handler\n(Offline buffering)" as offline_buffer
+    component "Status Reports\n(Battery, signal strength)" as status_report
+}
+
+' Sensor flow
+max30100_sensor --> reader
+mlx_sensor --> reader
+bmp_sensor --> reader
+
+' Processing flow
+reader --> buffer: Windowed data
+buffer --> validator: Quality check
+validator --> feature: Extraction
+feature --> json_builder: Structured format
+
+' Encoding flow
+json_builder --> encoder: Compression
+encoder --> integrity: Add checksum
+
+' Transmission flow
+integrity --> selector: Choose channel
+selector --> connmgr: Establish connection
+connmgr --> retry: Send with retry
+
+' Protocol selection
+selector --> wifi_direct
+selector --> mqtt
+selector --> ble_proto
+
+' Backend delivery
+wifi_direct --> api_direct
+mqtt --> mqtt_broker
+ble_proto --> websocket_handler
+
+' Error handling
+reader --> fault_detect
+connmgr --> offline_buffer
+json_builder --> status_report
+
+note right of buffer
+BUFFER STRUCTURE:
+Window size: 60 readings
+Duration: 60 seconds
+Format: [[hr, spo2, temp,
+          sys_bp, dia_bp,
+          resp_rate], ...]
+Update: Every reading
+Send: Every 60 seconds
+end note
+
+note right of json_builder
+DATA PAYLOAD FORMAT:
+{
+  "device_id": "uuid",
+  "patient_id": "uuid",
+  "timestamp": "ISO8601",
+  "sequence_id": 12345,
+  "vitals": {
+    "heart_rate": 75,
+    "spo2": 98,
+    "temperature": 36.5,
+    "systolic_bp": 120,
+    "diastolic_bp": 80,
+    "respiration_rate": 16
+  },
+  "stats": {
+    "hr_mean": 73,
+    "hr_std": 2.5,
+    "quality_score": 0.95
+  },
+  "metadata": {
+    "battery_level": 85,
+    "signal_strength": -45,
+    "protocol": "wifi"
+  }
+}
+end note
+
+note right of mqtt
+MQTT TOPIC STRUCTURE:
+healsense/vitals/[patient_id]
+healsense/status/[device_id]
+healsense/emergency/[patient_id]
+healsense/alerts/[device_id]
+
+Quality of Service: 1 (at-least once)
+Retain: false
+Username/password: TLS auth
+Topic filter support
+end note
+
+note right of selector
+PROTOCOL SELECTION LOGIC:
+WiFi when:
+  - Signal > -60 dBm
+  - Latency < 100ms
+  - Bandwidth > 1Mbps
+
+MQTT (via WiFi) when:
+  - Buffered data >60sec
+  - High frequency (>30Hz)
+
+BLE when:
+  - WiFi unavailable
+  - Mobile app in range
+end note
+
+note right of offline_buffer
+OFFLINE HANDLING:
+Max buffer: 3600 readings
+(1 hour at 60sec interval)
+Storage: SPIFFS (32MB)
+Sync: On reconnection
+Priority: Latest first
+Compression: GZIP enabled
+end note
+
+note right of status_report
+STATUS PAYLOAD:
+{
+  "device_id": "uuid",
+  "battery": 85,
+  "WiFi_rssi": -45,
+  "BLE_rssi": -30,
+  "last_reading": "ISO8601",
+  "uptime_seconds": 86400,
+  "errors_count": 2,
+  "heap_free": 524288,
+  "storage_used": 2562048
+}
+end note
+
+note bottom of fault_detect
+SENSOR FAULT CONDITIONS:
+- I2C bus hang (>1000ms)
+- No response from sensor
+- Out-of-range readings
+- CRC errors (>5% rate)
+Action: Retry, skip reading,
+        alert backend
+end note
+
+@enduml

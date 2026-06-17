@@ -1,0 +1,126 @@
+@startuml HealSense_ML_Pipeline
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense Machine Learning Pipeline - Complete Workflow
+
+package "Data Sources" as datasources {
+    component "UCI Heart Disease" as uci
+    component "PhysioNet BIDMC" as physionet
+    component "Kaggle Datasets" as kaggle
+    component "Synthetic Data" as synthetic
+}
+
+package "Data Processing Layer" as dataproc {
+    component "Data Loading\n(pandas, numpy)" as loading
+    component "Data Cleaning\n(Missing values, outliers)" as cleaning
+    component "Exploratory Data Analysis\n(Statistical analysis)" as eda
+    component "Feature Engineering\n(Normalization, scaling)" as features
+    component "Time-Series Windowing\n(60-timestep sequences)" as windowing
+}
+
+package "Data Preparation" as dataprep {
+    component "Train/Test Split\n(80/20 ratio)" as split
+    component "Class Balancing\n(SMOTE)" as balancing
+    component "StandardScaler Fitting\n(Save scaler.pkl)" as scaling
+}
+
+package "Model Architecture" as modelarch {
+    component "LSTM Layer 1\n(128 units, tanh activation)" as lstm1
+    component "Dropout 1\n(0.3 rate)" as dropout1
+    component "LSTM Layer 2\n(64 units)" as lstm2
+    component "Dropout 2\n(0.2 rate)" as dropout2
+    component "Dense Layer\n(32 units, ReLU)" as dense
+    component "Dropout 3\n(0.1 rate)" as dropout3
+    component "Output Layer\n(3 units, Softmax)" as output
+}
+
+package "Training Process" as training {
+    component "Loss Function\n(Categorical Crossentropy)" as loss
+    component "Optimizer\n(Adam, lr=0.001)" as optimizer
+    component "Batch Processing\n(size=32)" as batch
+    component "Epoch Iteration\n(100 epochs max)" as epochs
+    component "Validation\n(20% held out)" as validation
+    component "Early Stopping\n(patience=10)" as earlystop
+}
+
+package "Model Evaluation" as evaluation {
+    component "Accuracy Metrics\n(>93% expected)" as accuracy
+    component "Precision & Recall\n(Per class analysis)" as precrecall
+    component "Confusion Matrix" as confusion
+    component "ROC-AUC Curves" as rocauc
+    component "F1-Score Calculation" as f1score
+}
+
+package "Model Export" as export {
+    component "Save Best Model\n(best_model.h5)" as savebest
+    component "Save Metadata\n(model_info.json)" as savemeta
+    component "TensorFlow Lite Conversion\n(health_model.tflite)" as tflite
+    component "Quantization\n(Float16, Int8)" as quant
+}
+
+package "Model Deployment" as deployment {
+    component "Backend Serving\n(FastAPI)" as backend_serve
+    component "Mobile Deployment\n(<5MB models)" as mobile
+    component "Real-time Inference\n(5-10ms latency)" as inference
+}
+
+datasources --> loading
+loading --> cleaning
+cleaning --> eda
+eda --> features
+features --> windowing
+windowing --> split
+split --> balancing
+balancing --> scaling
+
+scaling --> lstm1
+lstm1 --> dropout1
+dropout1 --> lstm2
+lstm2 --> dropout2
+dropout2 --> dense
+dense --> dropout3
+dropout3 --> output
+
+output --> loss
+output --> optimizer
+optimizer --> batch
+batch --> epochs
+epochs --> validation
+validation --> earlystop
+earlystop --> accuracy
+
+accuracy --> precrecall
+precrecall --> confusion
+confusion --> rocauc
+rocauc --> f1score
+
+f1score --> savebest
+savebest --> savemeta
+savemeta --> tflite
+tflite --> quant
+
+quant --> backend_serve
+quant --> mobile
+
+backend_serve --> inference
+mobile --> inference
+
+note right of lstm1
+  Input shape: (batch, 60, 6)
+  60 timesteps of 6 vital features
+  Output: 128-dimensional vector
+end note
+
+note right of output
+  Output shape: (batch, 3)
+  3 classes: NORMAL, WARNING, CRITICAL
+  Probability distribution via Softmax
+end note
+
+note right of tflite
+  Mobile-optimized model
+  Float16: 4-5 MB
+  Int8: <3 MB
+end note
+
+@enduml

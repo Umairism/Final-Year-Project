@@ -1,0 +1,142 @@
+@startuml HealSense_Database_ERD
+!define ABSTRACT abstract
+title HealSense Database Schema - Entity Relationship Diagram
+
+entity "Patients" as patients {
+    * id : UUID [PK]
+    * first_name : VARCHAR(100)
+    * last_name : VARCHAR(100)
+    * age : INTEGER
+    * gender : ENUM(M,F,Other)
+    * blood_type : VARCHAR(10)
+    * email : VARCHAR(255) [UNIQUE]
+    * phone : VARCHAR(20)
+    * emergency_contact : TEXT
+    * medical_conditions : TEXT
+    * allergies : TEXT
+    * medications : TEXT
+    * provider_id : UUID [FK]
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+    * is_active : BOOLEAN
+}
+
+entity "VitalSigns" as vitals {
+    * id : UUID [PK]
+    * patient_id : UUID [FK]
+    * device_id : UUID [FK]
+    * heart_rate : FLOAT
+    * spo2 : FLOAT
+    * temperature : FLOAT
+    * systolic_bp : FLOAT
+    * diastolic_bp : FLOAT
+    * respiratory_rate : FLOAT
+    * glucose_level : FLOAT
+    * weight : FLOAT
+    * height : FLOAT
+    * data_source : ENUM
+    * sensor_accuracy : FLOAT
+    * activity_context : VARCHAR(50)
+    * location_lat : FLOAT
+    * location_lng : FLOAT
+    * status : ENUM(NORMAL,WARNING,CRITICAL)
+    * risk_score : FLOAT
+    * ml_prediction_version : VARCHAR(50)
+    * timestamp : TIMESTAMP
+    * recorded_at : TIMESTAMP
+    * created_at : TIMESTAMP
+}
+
+entity "Devices" as devices {
+    * id : UUID [PK]
+    * patient_id : UUID [FK]
+    * device_name : VARCHAR(255)
+    * device_type : ENUM(IOT,MOBILE,WEARABLE,MANUAL)
+    * manufacturer : VARCHAR(100)
+    * model : VARCHAR(100)
+    * serial_number : VARCHAR(255) [UNIQUE]
+    * phone_model : VARCHAR(100)
+    * phone_os : VARCHAR(50)
+    * phone_os_version : VARCHAR(20)
+    * sensor_capabilities : JSON
+    * app_version : VARCHAR(20)
+    * connected : BOOLEAN
+    * battery_level : INTEGER
+    * signal_strength : INTEGER
+    * last_heartbeat : TIMESTAMP
+    * measurement_interval : INTEGER
+    * alarm_threshold : JSON
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+    * last_seen_at : TIMESTAMP
+}
+
+entity "Alerts" as alerts {
+    * id : UUID [PK]
+    * patient_id : UUID [FK]
+    * vital_sign_id : UUID [FK]
+    * alert_type : VARCHAR(100)
+    * message : TEXT
+    * description : TEXT
+    * severity : ENUM(LOW,MEDIUM,HIGH,CRITICAL)
+    * vital_type : VARCHAR(50)
+    * vital_value : FLOAT
+    * threshold_value : FLOAT
+    * status : ENUM(ACTIVE,ACKNOWLEDGED,DISMISSED,RESOLVED)
+    * acknowledged : BOOLEAN
+    * dismissed : BOOLEAN
+    * acknowledged_by : UUID [FK]
+    * acknowledged_at : TIMESTAMP
+    * resolved_at : TIMESTAMP
+    * resolution_notes : TEXT
+    * escalated : BOOLEAN
+    * escalated_at : TIMESTAMP
+    * escalated_to : VARCHAR(255)
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "Emergencies" as emergencies {
+    * id : UUID [PK]
+    * patient_id : UUID [FK]
+    * emergency_type : VARCHAR(100)
+    * severity : ENUM(HIGH,CRITICAL)
+    * location : VARCHAR(255)
+    * location_lat : FLOAT
+    * location_lng : FLOAT
+    * reported_symptoms : TEXT
+    * notes : TEXT
+    * status : ENUM(ACTIVE,RESPONDED,RESOLVED)
+    * triggered_at : TIMESTAMP
+    * responded_at : TIMESTAMP
+    * resolved_at : TIMESTAMP
+    * responder_id : UUID [FK]
+    * responder_notes : TEXT
+    * created_at : TIMESTAMP
+}
+
+entity "Users" as users {
+    * id : UUID [PK]
+    * email : VARCHAR(255) [UNIQUE]
+    * password_hash : VARCHAR(255)
+    * full_name : VARCHAR(255)
+    * user_type : ENUM(PROVIDER,ADMIN,PATIENT)
+    * specialization : VARCHAR(100)
+    * license_number : VARCHAR(100)
+    * is_active : BOOLEAN
+    * last_login : TIMESTAMP
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+patients ||--o{ vitals : "has"
+patients ||--o{ devices : "uses"
+patients ||--o{ alerts : "generates"
+patients ||--o{ emergencies : "triggers"
+devices ||--o{ vitals : "records"
+vitals ||--o{ alerts : "triggers"
+users ||--o{ patients : "manages"
+users ||--o{ alerts : "acknowledges"
+users ||--o{ emergencies : "responds_to"
+
+@enduml

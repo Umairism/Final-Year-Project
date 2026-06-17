@@ -1,0 +1,97 @@
+@startuml HealSense_Data_Flow
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Dynamic.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Complete End-to-End Data Flow
+
+Person(patient, "Patient")
+System(iot, "IoT Sensor Unit\n(ESP32/Arduino)")
+System(mobile, "Mobile App\n(Flutter)")
+System(api_gw, "API Gateway\n(FastAPI)")
+System(vital_svc, "Vital Signs Service")
+System(ml_svc, "ML Inference Service")
+System(alert_svc, "Alert Service")
+System(db, "PostgreSQL Database")
+System(redis, "Redis Cache")
+System(realtime, "WebSocket Manager")
+System(notify, "Notification Service")
+System(web_dash, "Web Dashboard\n(React)")
+Person(provider, "Healthcare Provider")
+
+note as scenario_1
+SCENARIO 1: Vital Sign Collection
+Vital sign measurement and storage
+end note
+
+Rel(patient, iot, "1. Wears/activates", "Physical")
+Rel(iot, api_gw, "2. Transmits vital data\n{HR: 78, SpO2: 98.5, Temp: 37.1, BP: 120/78}", "REST/MQTT")
+Rel(api_gw, vital_svc, "3. Validate vital signs", "Internal Call")
+Rel(vital_svc, db, "4. Store vital record", "INSERT vital_signs table")
+Rel(db, redis, "5. Cache latest vital (TTL: 5min)", "SET cache")
+Rel(vital_svc, ml_svc, "6. Send for risk prediction", "Internal Call")
+
+note as scenario_2
+SCENARIO 2: ML-Based Risk Prediction
+Machine learning inference and classification
+end note
+
+Rel(ml_svc, ml_svc, "7. Normalize features\nusing StandardScaler", "Feature Engineering")
+Rel(ml_svc, ml_svc, "8. Run LSTM inference\n(60-timestep sequence)", "TensorFlow")
+Rel(ml_svc, ml_svc, "9. Return health status\n{status: NORMAL, risk_score: 0.15}", "Prediction")
+Rel(ml_svc, vital_svc, "10. Return classification", "Response")
+
+note as scenario_3
+SCENARIO 3: Alert Generation
+Alert creation based on predictions and thresholds
+end note
+
+Rel(vital_svc, alert_svc, "11. Check alert conditions\nif (status != NORMAL)", "Conditional Logic")
+Rel(alert_svc, db, "12. Create alert record\nif threshold exceeded", "INSERT alerts table")
+Rel(alert_svc, realtime, "13. Broadcast alert event", "WebSocket Pub/Sub")
+
+note as scenario_4
+SCENARIO 4: Real-Time Notification
+Multi-channel alert delivery to stakeholders
+end note
+
+Rel(realtime, notify, "14. Dispatch notifications", "Internal")
+Rel(notify, mobile, "15a. Push notification", "Firebase FCM")
+Rel(notify, web_dash, "15b. WebSocket alert", "Real-time Stream")
+Rel(notify, notify, "15c. Email/SMS delivery", "External Services")
+Rel(mobile, patient, "16a. Alert on phone screen", "UI Display")
+Rel(web_dash, provider, "16b. Alert in dashboard", "UI Display")
+
+note as scenario_5
+SCENARIO 5: Provider Dashboard Update
+Provider monitoring and intervention
+end note
+
+Rel(provider, web_dash, "17. Views patient data", "Browser Action")
+Rel(web_dash, api_gw, "18. Request patient profile", "GET /patients/{id}")
+Rel(api_gw, vital_svc, "19. Fetch latest vitals", "Query")
+Rel(vital_svc, redis, "20. Check cache (hit)", "GET cache")
+Rel(redis, api_gw, "21. Return cached data", "Cached Response")
+Rel(api_gw, web_dash, "22. Display vitals + trends", "JSON Response")
+Rel(provider, api_gw, "23. Acknowledge alert", "POST /alerts/{id}/acknowledge")
+Rel(api_gw, alert_svc, "24. Mark acknowledged", "Update Status")
+Rel(alert_svc, realtime, "25. Broadcast acknowledgment", "Event")
+Rel(realtime, mobile, "26. Update mobile UI", "Real-time Update")
+
+note as note_database
+DATABASE TABLES INVOLVED:
+- vital_signs: Raw measurements
+- alerts: Alert records
+- patients: Patient info
+- devices: Device tracking
+- users: Provider accounts
+end note
+
+note as note_flow
+DATA FLOW CHARACTERISTICS:
+- Latency: <500ms end-to-end
+- Frequency: Every 30-60 seconds
+- Throughput: Multiple concurrent patients
+- Reliability: At-least-once delivery
+- History: 30-day retention
+end note
+
+@enduml

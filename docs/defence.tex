@@ -1,0 +1,295 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{tocloft}
+\geometry{a4paper, top=1in, bottom=1in, left=1.25in, right=1in}
+\usepackage{times}
+
+\begin{document}
+
+% --- TITLE PAGE ---
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    {\fontsize{18pt}{22pt}\selectfont\textbf{HEALSENSE DEEP LEARNING-BASED SMART HEALTH SURVEILLANCE AND PREDICTION MODEL USING IOT}\par}
+    
+    \vspace{1.5cm}
+    % Placeholder for university logo
+    \rule{4cm}{4cm} % Replace with \includegraphics[width=4cm]{logo.png}
+    
+    \vspace{1.5cm}
+    {\fontsize{16pt}{20pt}\selectfont\textbf{Mahnoor Sadaqat}\par}
+    \vspace{0.3cm}
+    {\fontsize{16pt}{20pt}\selectfont\textbf{Raj Bibi}\par}
+    \vspace{0.3cm}
+    {\fontsize{16pt}{20pt}\selectfont\textbf{Muhammad Umair Hakeem}\par}
+    
+    \vspace{1.5cm}
+    {\fontsize{14pt}{18pt}\selectfont\textit{Supervised By}\par}
+    \vspace{0.3cm}
+    {\fontsize{16pt}{20pt}\selectfont\textbf{Dr. Farhad M. Riaz}\par}
+    
+    \vspace{2cm}
+    {\fontsize{14pt}{18pt}\selectfont\textit{Submitted for the partial fulfillment of BS Computer Science degree to the}\par}
+    \vspace{0.3cm}
+    {\fontsize{14pt}{18pt}\selectfont\textit{Faculty of Engineering \& CS}\par}
+    
+    \vfill
+    {\fontsize{14pt}{18pt}\selectfont\textbf{DEPARTMENT OF COMPUTER SCIENCE}\par}
+    \vspace{0.3cm}
+    {\fontsize{14pt}{18pt}\selectfont\textbf{NATIONAL UNIVERSITY OF MODERN LANGUAGES, RAWALPINDI}\par}
+    \vspace{0.3cm}
+    {\fontsize{14pt}{18pt}\selectfont\textbf{June, 2026}\par}
+\end{titlepage}
+
+\pagenumbering{roman}
+\setcounter{page}{2}
+
+% --- CERTIFICATE ---
+\chapter*{CERTIFICATE}
+\addcontentsline{toc}{chapter}{CERTIFICATE}
+\noindent Dated: \underline{\hspace{4cm}}
+
+\vspace{1cm}
+\begin{center}
+    \textbf{\Large Final Approval}
+\end{center}
+\vspace{0.5cm}
+
+\noindent It is certified that project report titled `\textbf{HealSense Deep Learning-Based Smart Health Surveillance and Prediction Model Using IoT}' submitted by \textbf{Mahnoor Sadaqat}, \textbf{Raj Bibi} and \textbf{Muhammad Umair Hakeem} for the partial fulfillment of the requirement of ``Bachelor's Degree in Computer Science'' is approved.
+
+\vspace{1cm}
+\begin{center}
+    \textbf{\Large COMMITEE}
+\end{center}
+\vspace{1cm}
+
+\noindent Acting Dean Engineering \& CS: \hfill Signature: \underline{\hspace{4cm}}
+\vspace{1cm}
+
+\noindent Dr. Noman Malik \\
+HoD Computer Science: \hfill Signature: \underline{\hspace{4cm}}
+\vspace{1cm}
+
+\noindent Project Coordinator: \hfill Signature: \underline{\hspace{4cm}}
+\vspace{1cm}
+
+\noindent Dr. Farhad M. Riaz \\
+Supervisor: \hfill Signature: \underline{\hspace{4cm}}
+
+\newpage
+% --- DECLARATION ---
+\chapter*{DECLARATION}
+\addcontentsline{toc}{chapter}{DECLARATION}
+\noindent We hereby declare that our dissertation is entirely our work and genuine / original. We understand that in case of discovery of any PLAGIARISM at any stage, our group will be assigned an F (FAIL) grade and it may result in withdrawal of our Bachelor's degree.
+
+\vspace{1cm}
+\noindent Group members:
+
+\vspace{1cm}
+\noindent Mahnoor Sadaqat \hfill Signature: \underline{\hspace{4cm}}
+\vspace{1.5cm}
+
+\noindent Raj Bibi \hfill Signature: \underline{\hspace{4cm}}
+\vspace{1.5cm}
+
+\noindent Muhammad Umair Hakeem \hfill Signature: \underline{\hspace{4cm}}
+
+\newpage
+% --- PLAGIARISM CERTIFICATE ---
+\chapter*{PLAGIARISM CERTIFICATE}
+\addcontentsline{toc}{chapter}{PLAGIARISM CERTIFICATE}
+\noindent This is to certify that the project entitled ``\textbf{HealSense Deep Learning-Based Smart Health Surveillance and Prediction Model Using IoT}'', which is being submitted here with for the award of the ``Degree of Bachelor's in Computer Science''. This is the result of the original work by \textbf{Mahnoor Sadaqat}, \textbf{Raj Bibi} and \textbf{Muhammad Umair Hakeem} under my supervision and guidance. The work embodied in this project has not been done earlier for the basis of award of any degree or compatible certificate or similar tile of this for any other diploma/examining body or university to the best of my knowledge and belief.
+
+\vspace{1cm}
+\noindent \textbf{Turnitin Originality Report} \\
+Processed on [Date] \\
+ID: [ID] \\
+Word Count: [Count] \\
+Similarity Index: [\%]
+
+\vspace{2cm}
+\noindent Date: \underline{\hspace{3cm}} \hfill \underline{Dr. Farhad M. Riaz (Supervisor)}
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+\newpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ==============================
+% CHAPTER 1: INTRODUCTION
+% ==============================
+\chapter{INTRODUCTION}
+
+\section{Project Domain}
+The domain of this project encompasses Health Informatics, the Internet of Things (IoT), and applied Machine Learning. Specifically, the project addresses the critical gap in continuous, reliable patient physiological monitoring outside of clinical settings. By combining remote IoT telemetry with a mathematically constrained probabilistic inference engine, the system operates as a hybrid clinical decision support system, analyzing real-time vital signs to track patient degradation.
+
+\section{Problem Identification}
+Traditional healthcare heavily relies on periodic clinic visits or discrete monitoring, which frequently misses critical physiological degradation between checks. Existing remote monitoring solutions (e.g., consumer wearables) lack medical-grade accuracy and deterministic safety guarantees, while pure black-box Machine Learning models lack the interpretability and absolute safety constraints required for clinical trust. 
+
+\subsection{Proposed Solution}
+We propose the \textbf{Clinical Hybrid Risk Engine (HealSense)}, an explainable, rule-constrained decision support prototype. It integrates deterministic clinical safety rules with a probabilistic Machine Learning (LSTM) layer, culminating in an explicitly constrained Large Language Model (LLM) explanation layer. It functions as a self-consistency validation architecture where the ML model acts as a temporal mimic layer for safety-constrained decision boundaries.
+
+\subsection{Objectives}
+\begin{itemize}
+    \item To design a Canonical Clinical Schema for normalizing telemetry data.
+    \item To develop a deterministic rule engine based on proxy-clinical guidelines.
+    \item To implement an LSTM network to evaluate temporal sequences of physiological states.
+    \item To formulate a Fusion Engine that reconciles probabilistic and deterministic scores.
+    \item To integrate an isolated LLM explanation layer for human-readable clinical rationale.
+\end{itemize}
+
+\subsection{Scope of the Project}
+The system scope includes real-time continuous ingestion of 1 Hz physiological signals, processing via an LSTM over a 60-second sliding window, and deterministic rule evaluation. The system evaluates five core parameters: Heart Rate, SpO$_2$, Temperature, and Blood Pressure (Systolic/Diastolic). It encompasses a frontend UI, FastAPI backend, and mathematical fusion engine. It does \textbf{not} encompass real-world clinical deployment, medical diagnosis, or unconstrained predictive AI generation.
+
+\section{Effectiveness / Usefulness of the System}
+Unlike pure ML systems that suffer from hallucination or black-box opacity, this hybrid architecture guarantees safety through deterministic overrides. It is highly useful as a blueprint for explainable AI in healthcare, proving that temporal machine learning models can be effectively constrained by known clinical proxies.
+
+\section{Resource Requirement}
+\subsection{Hardware Requirement}
+The prototype processes 60-timestep physiological arrays.
+\begin{itemize}
+    \item Processing: Minimum dual-core CPU, 8GB RAM for backend hosting.
+    \item Edge Devices (Simulated): ESP32-DevKit, MAX30100 (HR/SpO2), MLX90614.
+\end{itemize}
+
+\subsection{Software Requirement}
+\begin{itemize}
+    \item Backend: Python 3.10+, FastAPI, TensorFlow 2.14, Scikit-Learn.
+    \item Frontend: React Native (Mobile), Next.js (Web).
+    \item Database: SQLite / PostgreSQL for temporal persistence.
+\end{itemize}
+
+\subsection{Data Requirement}
+The Machine Learning component relies on the \textbf{PhysioNet BIDMC PPG and Respiration Dataset}, consisting of continuous 1 Hz numeric records.
+
+\section{Report Organization}
+This report is organized into six chapters. Chapter 1 introduces the system. Chapter 2 reviews background systems. Chapter 3 outlines requirements. Chapter 4 details the architectural modeling. Chapter 5 explores the rigorous testing and validation, and Chapter 6 concludes with limitations and future directions.
+
+% ==============================
+% CHAPTER 2: BACKGROUND AND EXISTING SYSTEMS
+% ==============================
+\chapter{BACKGROUND AND EXISTING SYSTEMS}
+
+\section{Related Literature Review}
+Recent literature emphasizes the necessity of remote IoT monitoring. Liu et al. (2021) demonstrated that LSTM networks effectively recognize time-series vital sign patterns. However, standard deep learning models act as opaque decision-makers. Chen et al. (2019) discussed ensemble methods for clinical decision support, but predominantly focused on static tabular data rather than continuous sliding-window telemetry.
+
+\section{Related Systems/Applications}
+Consumer applications like Fitbit and Apple Health provide continuous monitoring but lack rigorous, medically constrained fusion engines, operating merely as alert triggers. Clinical systems like standard ICU telemetry monitors provide deterministic safety alerts but lack the predictive smoothing and temporal degradation analysis offered by an LSTM.
+
+\section{Identified Problem from Existing Work}
+The primary identified limitation in existing systems is the dichotomy between deterministic rigidity (too many false alarms) and ML opacity (unpredictable hallucinations). Existing models lack a hybridized, weighted fusion logic that guarantees a clinical safety override while still benefiting from predictive temporal smoothing. 
+
+\section{Selected Boundary for Proposed Solution}
+The proposed system implements the Canonical Schema, the Deterministic Engine, the LSTM pipeline, the Fusion Engine, and the LLM Explanation Layer. 
+The system does not implement direct integration into hospital Electronic Health Records (EHR), nor does it implement real-world multi-center clinical validation trials.
+
+% ==============================
+% CHAPTER 3: SYSTEM REQUIREMENTS AND SPECIFICATIONS
+% ==============================
+\chapter{SYSTEM REQUIREMENTS AND SPECIFICATIONS}
+
+\section{System Specification}
+The system requires real-time processing of continuous JSON payloads, sub-second API response times, and deterministic constraint checking prior to ML execution.
+
+\section{System Modules}
+\subsection{Canonical Schema Enforcement Module}
+Normalizes continuous signals (Heart Rate, SpO$_2$) and handles missing inputs (Temperature, BP) using explicit \texttt{NaN} masks and \texttt{-1.0} constant imputation.
+\subsection{LSTM Temporal Module}
+Ingests 60-timestep arrays and outputs a probability vector across Normal, Warning, and Critical classes.
+\subsection{Fusion Engine Module}
+A deterministic logic gate that mathematically reconciles rule outputs and ML probability scores.
+
+\section{Functional Requirements/Software Features}
+\subsection{Temporal Risk Evaluation}
+The system must continuously evaluate 60-second windows of patient vitals to calculate degradation probability.
+\subsection{Safety Override}
+The system must instantly elevate the final risk score to CRITICAL if the deterministic engine identifies a physiological threshold breach.
+
+\section{Non-Functional Requirements}
+\subsection{Explainability}
+The system's final output must include a natural language rationale explaining the mathematical fusion and the triggered deterministic rules.
+
+% ==============================
+% CHAPTER 4: SYSTEM MODELING AND DESIGN
+% ==============================
+\chapter{SYSTEM MODELING AND DESIGN}
+
+\section{System Design and Analysis}
+The system leverages a heavily modular service-oriented architecture, strictly isolating the probabilistic ML engine from the deterministic ground-truth engine.
+
+\section{Architectural diagrams}
+\subsection{Component Level design}
+The architecture enforces five core layers. The pipeline flows from the Client UI via REST APIs to the FastAPI backend. Data is validated by Pydantic, imputed by Numpy/Scikit-Learn, processed in parallel by the Deterministic Engine and the TensorFlow LSTM, fused by a mathematical logic script, and explained by the Google Gemini API.
+
+% ==============================
+% CHAPTER 5: SYSTEM TESTING AND VALIDATION
+% ==============================
+\chapter{SYSTEM TESTING AND VALIDATION}
+
+\section{System testing}
+The system was evaluated not on external clinical validity, but on its internal self-consistency. We utilized an ablation study methodology to verify the outputs of the Hybrid Fusion Engine against the isolated Deterministic and ML layers.
+
+\section{Testing Techniques}
+\subsection{Ablation Study and System Alignment}
+Testing involved executing unseen holdout sequences (962 sequences) across the PhysioNet dataset through three pipelines:
+\begin{itemize}
+    \item Deterministic Rules Only
+    \item ML Model Only
+    \item Hybrid Fusion Engine
+\end{itemize}
+
+\section{Test Cases}
+\subsection{Test Case 1: Missing Modality Handling}
+Validating that the continuous arrays lacking Blood Pressure and Temperature correctly processed explicit \texttt{NaN} missing masks via constant imputation without dropping features or corrupting sequence dimensions.
+
+\section{Non-functional requirements}
+\subsection{Self-Consistency Measurement}
+The agreement between the probabilistic ML proxy and the deterministic rules was quantified using Cohen's Kappa. The system achieved a Cohen's Kappa score of \textbf{1.0000}. This validates that the ML successfully learned the temporal constraints of the rule-derived proxy labels without hallucinating independent clinical features.
+
+% ==============================
+% CHAPTER 6: CONCLUSION
+% ==============================
+\chapter{CONCLUSION}
+
+\section{Conclusion}
+The Clinical Hybrid Risk Engine successfully integrates IoT telemetry with an explainable AI architecture. By enforcing a Canonical Schema, the system flawlessly processes real-world PhysioNet telemetry, utilizing a deterministic engine to generate proxy labels for an LSTM. The mathematically weighted Fusion Engine guarantees safety overrides, while the isolated LLM layer provides safe, neutral clinical rationale. 
+
+\section{Limitations and Future Work}
+\textbf{Limitations:} The system relies completely on rule-derived proxy labels, lacking external clinical ground-truth validation. The high agreement (Kappa 1.0) is a measure of architectural imitation, not diagnostic accuracy. The dataset used is heavily constrained, limiting class variability.
+
+\textbf{Future Work:} Future iterations must target multi-center clinical validation, evaluating the probabilistic layer against actual physician diagnoses, and transitioning from static fusion weights to dynamic Bayesian uncertainty modeling.
+
+\newpage
+\chapter*{APPENDIX -- I}
+\addcontentsline{toc}{chapter}{APPENDIX -- I}
+
+\section*{Fusion Engine Formula}
+The final risk score mathematically reconciles predictions:
+\begin{equation}
+FinalScore = (w_d \cdot D) + (w_m \cdot M)
+\end{equation}
+Where $w_d = 0.6$ (Deterministic priority), $w_m = 0.4$ (ML contribution), and $D$ overrides to $1.0$ (Critical) upon safety threshold breach.
+
+\newpage
+\chapter*{REFERENCES}
+\addcontentsline{toc}{chapter}{REFERENCES}
+\begin{enumerate}
+    \item Pimentel, M., et al. (2016). PhysioNet BIDMC Dataset PPG and Respiration Database.
+    \item Liu, Y., et al. (2021). "LSTM-based Deep Learning Model for Cardiovascular Event Prediction Using Vital Signs." IEEE Journal of Biomedical and Health Informatics, 25(7), 2573-2581.
+    \item Chen, Z., et al. (2019). "Ensemble Learning for Clinical Decision Support: A Comparative Study." Artificial Intelligence in Medicine, 99, 101701.
+\end{enumerate}
+
+\end{document}

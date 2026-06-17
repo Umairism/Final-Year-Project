@@ -1,0 +1,149 @@
+@startuml HealSense_Alert_System
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Alert Detection and Management System
+
+package "Alert Detection" as detection {
+    component "Vital Signs Monitor\n(Real-time Stream)" as monitor
+    component "ML Risk Scorer" as ml_scorer
+    component "Threshold Checker\n(Clinical Limits)" as threshold_checker
+    component "Alert Condition Evaluator" as evaluator
+}
+
+package "Alert Classification" as classification {
+    component "Severity Classifier\nLOW | MEDIUM | HIGH | CRITICAL" as severity
+    component "Alert Type Mapper\n(HIGH_HR, LOW_SPO2, etc.)" as alerttype
+    component "Patient Risk Context\n(Medical history)" as context
+}
+
+package "Alert Database & State" as dbstate {
+    component "Alert Record Creator\n(persistent storage)" as dbcreator
+    component "Alert State Manager\n(ACTIVE, ACKNOWLEDGED, RESOLVED)" as statemanager
+    component "Alert History & Audit" as history
+}
+
+package "Alert Escalation" as escalation {
+    component "Auto-Escalation Rules\n(CRITICAL → Emergency)" as autorules
+    component "Emergency Contact Resolver\n(Doctor, family)" as contacts
+    component "Escalation Workflow\n(SMS → Call → EMS)" as workflow
+}
+
+package "Notification Dispatch" as notification {
+    component "Mobile Push\n(Firebase FCM)" as fcm
+    component "WebSocket Real-time\n(Live stream)" as websocket
+    component "Email Notification" as email
+    component "SMS Alerts\n(Critical only)" as sms
+    component "In-App Notification" as inapp
+}
+
+package "Alert Management UI" as management {
+    component "Mobile App Alert View" as mobile_view
+    component "Provider Dashboard\nAlert List" as provider_list
+    component "Alert Detail & Actions" as detail
+    component "Acknowledge Interface" as acknowledge
+    component "Dismiss Interface" as dismiss
+}
+
+package "User Actions" as actions {
+    component "Acknowledge Alert\n(Mark reviewed)" as user_ack
+    component "Dismiss Alert\n(False positive)" as user_dismiss
+    component "Resolve Alert\n(Issue resolved)" as user_resolve
+    component "Add Resolution Notes" as user_notes
+}
+
+monitor --> ml_scorer
+ml_scorer --> threshold_checker
+threshold_checker --> evaluator
+
+evaluator --> severity
+severity --> alerttype
+alerttype --> context
+
+context --> dbcreator
+dbcreator --> statemanager
+statemanager --> history
+
+evaluator --> autorules
+autorules --> contacts
+contacts --> workflow
+
+workflow --> fcm
+fcm --> notification
+workflow --> websocket
+websocket --> notification
+notification --> email
+notification --> sms
+notification --> inapp
+
+fcm --> mobile_view
+websocket --> mobile_view
+websocket --> provider_list
+provider_list --> detail
+
+mobile_view --> acknowledge
+provider_list --> acknowledge
+mobile_view --> dismiss
+provider_list --> dismiss
+detail --> acknowledge
+detail --> dismiss
+detail --> user_notes
+
+acknowledge --> user_ack
+dismiss --> user_dismiss
+user_notes --> user_resolve
+
+note right of severity
+ALERT SEVERITY LEVELS:
+LOW: Minor deviation
+  (HR: 55-65 bpm)
+  Action: Monitor
+
+MEDIUM: Notable concern
+  (HR: 50-55 bpm)
+  Action: Notice provider
+
+HIGH: Significant issue  
+  (HR: 40-50 bpm)
+  Action: Provider alert
+
+CRITICAL: Emergency
+  (HR: <40 or >130 bpm)
+  Action: Auto-escalate
+end note
+
+note right of evaluator
+ALERT CONDITIONS:
+- HR: <50 or >120 (WARNING)
+        <40 or >130 (CRITICAL)
+- SpO2: <92% (WARNING)
+          <90% (CRITICAL)
+- Temp: >38.5°C (WARNING)
+          >40°C (CRITICAL)
+- BP: SysBP >140 (WARNING)
+       SysBP >180 (CRITICAL)
+- RR: <8 or >30 (CRITICAL)
+end note
+
+note right of statemanager
+ALERT STATES:
+ACTIVE
+  → ACKNOWLEDGED (provider reviews)
+  → DISMISSED (false alert)
+  
+ACKNOWLEDGED
+  → RESOLVED (issue handled)
+  
+RESOLVED
+  → ARCHIVED (historical)
+end note
+
+note right of workflow
+ESCALATION WORKFLOW:
+If CRITICAL for 5 mins:
+1. Auto-call hospital
+2. SMS to emergency contact
+3. Call emergency contact
+4. Activate EMS if no response
+end note
+
+@enduml

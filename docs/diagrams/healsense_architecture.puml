@@ -1,0 +1,143 @@
+@startuml HealSense_System_Architecture
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_TOP_DOWN()
+title HealSense: Multi-Layer System Architecture
+
+Person(patient, "Patient/User")
+Person(provider, "Healthcare Provider")
+
+System_Boundary(healsense, "HealSense Health Monitoring System") {
+    
+    ' IoT and Data Ingestion Layer
+    Container_Boundary(iot_layer, "IoT & Data Ingestion Layer") {
+        System(iot_device, "IoT Sensor Hardware", "ESP32/Arduino", "Vital sign sensors: HR, SpO2, Temperature, BP")
+        System(mobile_sensors, "Mobile Phone Sensors", "Flutter App", "Accelerometer, GPS, smartphone built-in sensors")
+        System(wearable, "Wearable Devices", "Smartwatch/Fitbit", "Heart rate, activity, sleep tracking")
+        System(manual_entry, "Manual Data Entry", "Web/Mobile UI", "User-entered vital measurements")
+    }
+    
+    ' Frontend Layer
+    Container_Boundary(frontend_layer, "Frontend Layer") {
+        Container(mobile_app, "Mobile App", "Flutter/Dart", "Real-time vitals, alerts, device pairing, offline mode")
+        Container(web_dashboard, "Web Dashboard", "React/TypeScript/Vite", "Multi-patient monitoring, analytics, provider panel")
+    }
+    
+    ' API Gateway Layer
+    Container_Boundary(api_layer, "API Gateway & Backend Layer") {
+        Container(fastapi, "FastAPI Gateway", "Python/FastAPI", "REST API, WebSocket streaming, authentication")
+        Container(auth_service, "Authentication Service", "JWT/OAuth", "User login, session management, token validation")
+        Container(rate_limiter, "Rate Limiter", "Redis", "API rate limiting, DDoS protection")
+    }
+    
+    ' Business Logic Layer
+    Container_Boundary(logic_layer, "Business Logic & Services Layer") {
+        Container(patient_service, "Patient Service", "Python", "Patient CRUD, profile management, history")
+        Container(device_service, "Device Service", "Python", "Device registration, pairing, status tracking")
+        Container(vital_service, "Vital Signs Service", "Python", "Vital storage, validation, time-series queries")
+        Container(alert_service, "Alert Service", "Python/Celery", "Alert generation, escalation, notification dispatch")
+        Container(ml_service, "ML Inference Service", "TensorFlow", "Real-time health risk prediction")
+        Container(realtime_service, "Real-time Service", "WebSocket Manager", "Live streaming, broadcast management")
+    }
+    
+    ' Data Layer
+    Container_Boundary(data_layer, "Data Persistence Layer") {
+        Container(postgresql, "PostgreSQL", "Relational DB", "Patients, users, alerts, devices, audit logs")
+        Container(timeseries, "Time-Series Store", "Optimized Queries", "Vital signs with indexed timestamps")
+        Container(redis, "Redis Cache", "In-Memory Cache", "Session, cache, message queue, Pub/Sub")
+    }
+    
+    ' ML Model Layer
+    Container_Boundary(ml_layer, "Machine Learning Layer") {
+        Container(lstm_model, "LSTM Neural Network", "TensorFlow/Keras", "Primary health risk classification model")
+        Container(feature_scaler, "Feature Scaler", "scikit-learn", "Vital sign normalization and scaling")
+        Container(tflite_model, "TFLite Model", "Mobile-Optimized", "Deployed on mobile devices (<5MB)")
+    }
+    
+    ' External Services
+    Container_Boundary(external_layer, "External Integrations") {
+        System(openai, "OpenAI GPT-4", "API", "AI health guidance and assistant")
+        System(gemini, "Google Gemini", "API", "Alternative AI provider")
+        System(firebase, "Firebase", "Cloud Services", "Push notifications, authentication")
+        System(mqtt_broker, "MQTT Broker", "IoT Protocol", "Device communication and data collection")
+    }
+}
+
+' Relationships from Data Ingestion to Backend
+Rel(iot_device, fastapi, "HTTP/MQTT data upload", "REST/MQTT")
+Rel(mobile_sensors, fastapi, "HTTP vital submission", "REST")
+Rel(wearable, fastapi, "Synced vital data", "REST/BLE")
+Rel(manual_entry, fastapi, "User input submission", "REST")
+
+' Relationships from Frontend to API
+Rel(mobile_app, fastapi, "API calls & WebSocket", "REST/WS")
+Rel(web_dashboard, fastapi, "API calls & WebSocket", "REST/WS")
+Rel(patient, mobile_app, "Uses app", "")
+Rel(provider, web_dashboard, "Monitors patients", "")
+
+' API Layer Internal
+Rel(fastapi, auth_service, "Token validation", "Internal")
+Rel(fastapi, rate_limiter, "Check limits", "Internal")
+
+' API to Business Logic
+Rel(fastapi, patient_service, "Patient queries", "Internal")
+Rel(fastapi, device_service, "Device management", "Internal")
+Rel(fastapi, vital_service, "Vital storage/retrieval", "Internal")
+Rel(fastapi, alert_service, "Alert triggers", "Internal")
+Rel(fastapi, realtime_service, "Real-time broadcast", "Internal")
+
+' Business Logic Internal
+Rel(vital_service, ml_service, "Send vitals for prediction", "Internal")
+Rel(ml_service, alert_service, "Risk scores", "Internal")
+Rel(alert_service, realtime_service, "Broadcast alerts", "Internal")
+
+' Business Logic to Data
+Rel(patient_service, postgresql, "CRUD operations", "SQL")
+Rel(device_service, postgresql, "Device records", "SQL")
+Rel(vital_service, postgresql, "Store measurements", "SQL")
+Rel(vital_service, timeseries, "Time-indexed queries", "Optimized")
+Rel(alert_service, postgresql, "Alert records", "SQL")
+Rel(fastapi, redis, "Cache & sessions", "Redis Protocol")
+
+' ML Model Usage
+Rel(ml_service, lstm_model, "Inference request", "Internal")
+Rel(ml_service, feature_scaler, "Normalize features", "Internal")
+Rel(lstm_model, tflite_model, "Export to mobile", "Binary")
+
+' External Services
+Rel(alert_service, firebase, "Push notifications", "REST API")
+Rel(fastapi, openai, "Health guidance", "REST API")
+Rel(fastapi, gemini, "AI assistant queries", "REST API")
+Rel(iot_device, mqtt_broker, "Device messages", "MQTT")
+Rel(realtime_service, redis, "Pub/Sub messaging", "Redis")
+
+note right of lstm_model
+  Input: 60 timesteps of 6 vitals
+  Output: Health status probability
+  Accuracy: >93% on test data
+  Inference: 5-10ms
+end note
+
+note right of postgresql
+  Tables:
+  - patients
+  - vital_signs  
+  - devices
+  - alerts
+  - emergencies
+  - users
+end note
+
+note right of redis
+  Uses:
+  - Session storage
+  - API caching
+  - Message queue
+  - Real-time Pub/Sub
+end note
+
+@enduml
+Lay_D(api, alert)
+Lay_R(iot, mobile)
+Lay_R(web, api)
+
+@enduml
