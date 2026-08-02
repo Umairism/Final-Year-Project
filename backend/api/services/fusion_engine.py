@@ -68,6 +68,9 @@ class FusionEngine:
         elif features.heart_rate > 120 or features.heart_rate < 50:
             triggered_rules.append("Abnormal Heart Rate")
             risk_class = HealthStatus.WARNING
+        elif features.temperature >= 38.0 or features.temperature < 35.0:
+            triggered_rules.append("Hyperthermia/Fever or Hypothermia")
+            risk_class = HealthStatus.WARNING
             
         # Hard penalties for missing critical history
         penalty = 0.0
