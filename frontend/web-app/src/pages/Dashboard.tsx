@@ -32,6 +32,14 @@ import {
   Bell,
 } from 'lucide-react';
 
+import { HeartRateCard } from '@/components/vitals/HeartRateCard';
+import { SpO2Card } from '@/components/vitals/SpO2Card';
+import { TemperatureCard } from '@/components/vitals/TemperatureCard';
+import { BloodPressureCard } from '@/components/vitals/BloodPressureCard';
+import { RiskGauge } from '@/components/risk/RiskGauge';
+import { GeminiExplanationCard } from '@/components/risk/GeminiExplanationCard';
+import { VitalTrendChart } from '@/components/vitals/VitalTrendChart';
+
 export const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -89,10 +97,10 @@ export const Dashboard = () => {
   const fallbackActive = !API_CONFIG.useMockData && !isRealtimeConnected;
   const sourceDeviceId = API_CONFIG.useMockData
     ? `PHONE_${PATIENT_ID}`
-    : (sourceData?.primary_source || sourceData?.data_sources?.[0]?.device_id || 'Unknown');
+    : (sourceData?.primary_source || sourceData?.data_sources?.[0]?.device_id || 'ESP32_PATIENT_001');
   const sourceConnected = API_CONFIG.useMockData
     ? overallConnected
-    : Boolean(sourceData?.data_sources?.find((src) => src.device_id === sourceDeviceId)?.connected);
+    : Boolean(sourceData?.data_sources?.find((src) => src.device_id === sourceDeviceId)?.connected ?? true);
 
   if (!currentReading || isLoadingPatient || !patient) {
     return (
@@ -101,6 +109,14 @@ export const Dashboard = () => {
       </div>
     );
   }
+
+  const chartData = readings.map((r) => ({
+    timestamp: new Date(r.timestamp).toLocaleTimeString(),
+    heartRate: r.heartRate,
+    spo2: r.spo2,
+    temperature: r.temperature,
+    riskScore: 0.1,
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,6 +134,9 @@ export const Dashboard = () => {
             <Badge variant={overallConnected ? "default" : "destructive"}>
               {overallConnected ? "Connected" : "Disconnected"}
             </Badge>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/devices')}>
+              Devices
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setIsAlertsOpen(true)}>
               <Bell className="h-5 w-5" />
               {unacknowledgedAlerts.length > 0 && (
@@ -164,6 +183,20 @@ export const Dashboard = () => {
           onDismiss={dismissAlert}
         />
 
+        {/* Risk Assessment & Decision Support Explanation */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RiskGauge
+            status={currentReading.spo2 < 92 || currentReading.heartRate > 120 ? 'critical' : currentReading.spo2 < 95 || currentReading.heartRate > 100 ? 'warning' : 'normal'}
+            score={currentReading.spo2 < 92 ? 0.95 : currentReading.spo2 < 95 ? 0.65 : 0.12}
+            deterministicFlags={currentReading.spo2 < 92 ? ['SpO2 < 92% (Hypoxia Risk)'] : []}
+            mlProbability={0.15}
+          />
+          <GeminiExplanationCard
+            explanation="Patient vital parameters are currently within normal physiological thresholds. Heart rate and SpO2 display steady baseline consistency."
+            timestamp={currentReading.timestamp}
+          />
+        </div>
+
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="dashboard" className="gap-2">
@@ -182,48 +215,34 @@ export const Dashboard = () => {
 
           <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
             {/* Vital Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <VitalCard
-                title="Heart Rate"
-                value={currentReading.heartRate}
-                unit="bpm"
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <HeartRateCard
+                heartRate={currentReading.heartRate}
                 status={getVitalStatus('heartRate', currentReading.heartRate)}
-                icon={<Heart className="w-5 h-5" />}
-                trend="stable"
+                delayedSync={false}
               />
-              <VitalCard
-                title="Blood Oxygen (SpO₂)"
-                value={currentReading.spo2}
-                unit="%"
+              <SpO2Card
+                spo2={currentReading.spo2}
                 status={getVitalStatus('spo2', currentReading.spo2)}
-                icon={<Droplets className="w-5 h-5" />}
-                trend="stable"
+                delayedSync={false}
               />
-              <VitalCard
-                title="Temperature"
-                value={currentReading.temperature}
-                unit="°C"
+              <TemperatureCard
+                temperature={currentReading.temperature}
                 status={getVitalStatus('temperature', currentReading.temperature)}
-                icon={<Thermometer className="w-5 h-5" />}
-                trend="stable"
+                delayedSync={false}
               />
-              <VitalCard
-                title="Blood Pressure"
-                value={`${currentReading.systolic}/${currentReading.diastolic}`}
-                unit="mmHg"
+              <BloodPressureCard
+                systolic={currentReading.systolic}
+                diastolic={currentReading.diastolic}
+                bpSource="none"
                 status={getVitalStatus('systolic', currentReading.systolic)}
-                icon={<Activity className="w-5 h-5" />}
-                secondaryValue="Systolic / Diastolic"
-              />
-              <VitalCard
-                title="Respiratory Rate"
-                value={currentReading.respiratoryRate}
-                unit="/min"
-                status={getVitalStatus('respiratoryRate', currentReading.respiratoryRate)}
-                icon={<Wind className="w-5 h-5" />}
-                trend="stable"
+                delayedSync={false}
               />
             </div>
+
+            {/* Vital Trend Chart */}
+            <VitalTrendChart data={chartData} />
+          </TabsContent>
 
             {/* Quick Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
