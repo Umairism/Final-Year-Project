@@ -18,6 +18,14 @@ class DeviceType(str, enum.Enum):
     MANUAL = "manual"              # Manual entry
 
 
+class BpSource(str, enum.Enum):
+    """Blood Pressure measurement acquisition source"""
+    MANUAL_ENTRY = "manual_entry"  # User or clinician manual entry
+    BLE_CUFF = "ble_cuff"          # Bluetooth-enabled cuff GATT profile
+    HARDWARE_UART = "hardware_uart" # OEM NIBP hardware module connected via UART
+    NONE = "none"                  # No BP reading provided
+
+
 class HealthStatus(str, enum.Enum):
     """Health status classification"""
     NORMAL = "normal"
@@ -77,11 +85,15 @@ class VitalSigns(Base):
     diastolic_bp = Column(Float, nullable=True)
     respiratory_rate = Column(Float, nullable=True)
     
-    # Data source tracking (NEW)
+    # Blood pressure source tracking & offline recovery metadata (NEW)
+    bp_source = Column(SQLEnum(BpSource), default=BpSource.NONE, nullable=False)
+    delayed_sync = Column(Boolean, default=False, nullable=False)
+    
+    # Data source tracking
     data_source = Column(SQLEnum(DeviceType), default=DeviceType.IOT_HARDWARE)
     sensor_accuracy = Column(Float, nullable=True)  # Confidence score 0-1
     
-    # Phone-specific context (NEW)
+    # Phone-specific context
     activity_context = Column(String, nullable=True)  # "resting", "walking", "exercising"
     location_lat = Column(Float, nullable=True)  # GPS latitude
     location_lng = Column(Float, nullable=True)  # GPS longitude
@@ -91,7 +103,7 @@ class VitalSigns(Base):
     status = Column(SQLEnum(HealthStatus), default=HealthStatus.NORMAL)
     risk_score = Column(Float, nullable=True)
     
-    # AI Metadata (NEW)
+    # AI Metadata
     prediction_confidence = Column(Float, nullable=True)
     full_probability_distribution = Column(JSON, nullable=True)
     model_version = Column(String, nullable=True)
@@ -129,11 +141,14 @@ class Device(Base):
     device_id = Column(String, primary_key=True, index=True)
     patient_id = Column(String, ForeignKey("patients.id"), nullable=True, index=True)
     
-    # Device type and metadata (NEW)
+    # Device type and metadata
     device_type = Column(SQLEnum(DeviceType), default=DeviceType.IOT_HARDWARE)
     phone_model = Column(String, nullable=True)  # "Samsung Galaxy S8+"
     phone_os = Column(String, nullable=True)     # "Android 11"
     sensor_capabilities = Column(JSON, nullable=True)  # ["heart_rate", "spo2"]
+    
+    # Device authentication credentials (NEW)
+    api_key_hash = Column(String(128), nullable=True)
     
     # Connection status
     connected = Column(Boolean, default=False)

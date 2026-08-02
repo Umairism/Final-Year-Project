@@ -14,6 +14,14 @@ class HealthStatus(str, Enum):
     CRITICAL = "critical"
 
 
+class BpSource(str, Enum):
+    """Blood pressure measurement acquisition source"""
+    MANUAL_ENTRY = "manual_entry"
+    BLE_CUFF = "ble_cuff"
+    HARDWARE_UART = "hardware_uart"
+    NONE = "none"
+
+
 class AlertSeverity(str, Enum):
     """Alert severity levels"""
     LOW = "low"
@@ -31,6 +39,8 @@ class VitalSignsBase(BaseModel):
     systolic_bp: Optional[float] = Field(None, ge=0, le=300)
     diastolic_bp: Optional[float] = Field(None, ge=0, le=200)
     respiratory_rate: Optional[float] = Field(None, ge=0, le=60)
+    bp_source: BpSource = Field(BpSource.NONE, description="Acquisition source mechanism for BP reading")
+    delayed_sync: bool = Field(False, description="Flag indicating historical sync from offline ESP32 NVS buffer")
 
 
 class VitalSignsCreate(VitalSignsBase):
@@ -114,8 +124,10 @@ class CanonicalClinicalFeatureSchema(BaseModel):
     heart_rate: float = Field(..., ge=0, le=300, description="Beats per minute (bpm)")
     spo2: float = Field(..., ge=0, le=100, description="Blood oxygen percentage (%)")
     temperature: float = Field(..., ge=30.0, le=45.0, description="Body temperature (°C)")
-    systolic_bp: float = Field(..., ge=0, le=300, description="Systolic blood pressure (mmHg)")
-    diastolic_bp: float = Field(..., ge=0, le=200, description="Diastolic blood pressure (mmHg)")
+    systolic_bp: Optional[float] = Field(None, ge=0, le=300, description="Optional Systolic blood pressure (mmHg)")
+    diastolic_bp: Optional[float] = Field(None, ge=0, le=200, description="Optional Diastolic blood pressure (mmHg)")
+    bp_source: BpSource = Field(BpSource.NONE, description="Source mechanism for blood pressure reading")
+    delayed_sync: bool = Field(False, description="Flag for historical offline syncs")
 
     # Medical History (Categoricals with Explicit Missingness)
     age: Optional[int] = Field(None, ge=0, le=150, description="Patient age in years")
