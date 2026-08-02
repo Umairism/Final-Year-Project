@@ -13,7 +13,7 @@ import logging
 
 from api.config import get_settings
 from api.utils.logger import setup_logger
-from api.routes import patients, alerts, devices
+from api.routes import patients, alerts, devices, telemetry
 from api.routes import realtime
 from api.routes import ai
 
@@ -76,6 +76,7 @@ app.add_middleware(
 # TODO: Add authentication middleware
 
 # Include routers
+app.include_router(telemetry.router, prefix=f"{settings.API_V1_PREFIX}/telemetry", tags=["Telemetry Ingestion"])
 app.include_router(patients.router, prefix=f"{settings.API_V1_PREFIX}/patients", tags=["Patients"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_PREFIX}/alerts", tags=["Alerts"])
 app.include_router(devices.router, prefix=f"{settings.API_V1_PREFIX}/devices", tags=["Devices"])

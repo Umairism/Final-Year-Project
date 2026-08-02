@@ -14,6 +14,7 @@ from api.models.schemas import (
     PatientUpdate,
     VitalSigns as VitalSignsSchema,
     Alert as AlertSchema,
+    TelemetryPayload,
 )
 from api.models.database import (
     Patient,
@@ -28,6 +29,7 @@ from api.models.database import (
 from api.services.realtime import realtime_manager
 from api.services.prediction_service import prediction_service
 from api.services.fusion_engine import fusion_engine
+from api.services.telemetry_service import telemetry_service
 
 router = APIRouter()
 
@@ -246,7 +248,7 @@ async def create_vital_signs(
     vitals: VitalSignsSchema,
     db: Session = Depends(get_db)
 ):
-    """Create new vital signs entry"""
+    """Create new vital signs entry via patient endpoint"""
     # Check if patient exists
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -255,73 +257,42 @@ async def create_vital_signs(
             detail=f"Patient {patient_id} not found"
         )
     
-    # Create new vitals record
-    db_vitals = VitalSigns(
-        id=str(uuid.uuid4()),
+    # Map device_id or construct mock/fallback device for patient creation route
+    device_id = vitals.device_id or f"DEV_PATIENT_{patient_id}"
+    device = db.query(Device).filter(Device.device_id == device_id).first()
+    if not device:
+        device = Device(
+            device_id=device_id,
+            patient_id=patient_id,
+            connected=True,
+            device_type=DeviceType.MANUAL
+        )
+        db.add(device)
+        db.commit()
+
+    # Build Telemetry Payload
+    payload = TelemetryPayload(
+        device_id=device_id,
         patient_id=patient_id,
         heart_rate=vitals.heart_rate,
         spo2=vitals.spo2,
         temperature=vitals.temperature,
         systolic_bp=vitals.systolic_bp,
         diastolic_bp=vitals.diastolic_bp,
-        respiratory_rate=vitals.respiratory_rate,
-        timestamp=datetime.utcnow(),
-        status=vitals.status,
-        risk_score=vitals.risk_score
+        bp_source=vitals.bp_source,
+        delayed_sync=vitals.delayed_sync,
+        timestamp=vitals.timestamp or datetime.utcnow()
     )
-    
-    db.add(db_vitals)
-    db.commit()
-    db.refresh(db_vitals)
 
-    # Secondary Layer: LSTM Prediction
-    vitals_history_records = (
-        db.query(VitalSigns)
-        .filter(VitalSigns.patient_id == patient_id)
-        .order_by(VitalSigns.timestamp.desc())
-        .limit(60)
-        .all()
+    # Process ingestion via shared telemetry service (bypassing hardware API key for internal patient route)
+    telemetry_resp = await telemetry_service.process_telemetry(
+        payload=payload,
+        x_device_api_key=device.api_key_hash, # Use stored hash or None to satisfy internal route
+        db=db
     )
-    vitals_history = [
-        {
-            "heart_rate": v.heart_rate,
-            "spo2": v.spo2,
-            "temperature": v.temperature,
-            "systolic_bp": v.systolic_bp or 120.0,
-            "diastolic_bp": v.diastolic_bp or 80.0
-        }
-        for v in reversed(vitals_history_records)
-    ]
-    
-    prediction = prediction_service.predict_risk(vitals_history)
-    ai_analysis = None
-    if prediction:
-        db_vitals.prediction_confidence = prediction["probability"]
-        db_vitals.full_probability_distribution = prediction["full_probability_distribution"]
-        db_vitals.model_version = prediction["model_version"]
-        db.commit()
-        db.refresh(db_vitals)
-        ai_analysis = prediction
 
-    await realtime_manager.broadcast_patient(
-        patient_id,
-        "patient.vitals.created",
-        {
-            "vital": {
-                "id": db_vitals.id,
-                "heart_rate": db_vitals.heart_rate,
-                "spo2": db_vitals.spo2,
-                "temperature": db_vitals.temperature,
-                "systolic_bp": db_vitals.systolic_bp,
-                "diastolic_bp": db_vitals.diastolic_bp,
-                "respiratory_rate": db_vitals.respiratory_rate,
-                "status": db_vitals.status.value if db_vitals.status else None,
-                "timestamp": db_vitals.timestamp,
-            },
-            "ai_analysis": ai_analysis
-        },
-    )
-    
+    # Fetch created vital record
+    db_vitals = db.query(VitalSigns).filter(VitalSigns.id == telemetry_resp.vital_id).first()
     return db_vitals
 
 

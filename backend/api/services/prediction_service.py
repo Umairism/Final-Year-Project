@@ -2,7 +2,12 @@ import numpy as np
 import joblib
 import logging
 import os
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except Exception as e:
+    tf = None
+    logging.getLogger(__name__).warning(f"TensorFlow native import unavailable: {e}. Falling back to clinical rules/mock prediction.")
+
 from typing import List, Dict, Any, Tuple
 
 from api.config import get_settings

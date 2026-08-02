@@ -195,6 +195,32 @@ class EmergencyResponse(BaseModel):
 
 
 # API Response Wrappers
+class TelemetryPayload(BaseModel):
+    """Payload schema for direct ESP32 telemetry ingestion"""
+    device_id: str = Field(..., description="Unique hardware identifier of the ESP32 IoT gateway")
+    patient_id: str = Field(..., description="Unique ID of the linked patient")
+    heart_rate: float = Field(..., ge=0, le=300, description="Heart rate reading in bpm")
+    spo2: float = Field(..., ge=0, le=100, description="SpO2 percentage reading")
+    temperature: float = Field(..., ge=30, le=45, description="Body temperature in °C")
+    systolic_bp: Optional[float] = Field(None, ge=0, le=300, description="Optional Systolic BP in mmHg")
+    diastolic_bp: Optional[float] = Field(None, ge=0, le=200, description="Optional Diastolic BP in mmHg")
+    bp_source: Optional[BpSource] = Field(BpSource.NONE, description="Blood pressure measurement acquisition origin")
+    delayed_sync: bool = Field(False, description="Flag indicating offline sync upload from NVS buffer")
+    timestamp: Optional[datetime] = Field(None, description="Hardware reading timestamp")
+
+
+class TelemetryResponse(BaseModel):
+    """Response payload returned upon successful telemetry ingestion and evaluation"""
+    success: bool = True
+    message: str
+    vital_id: str
+    patient_id: str
+    device_id: str
+    status: HealthStatus
+    fused_decision: dict
+    explanation: Optional[str] = None
+
+
 class ApiResponse(BaseModel):
     """Standard API response wrapper"""
     success: bool = True
