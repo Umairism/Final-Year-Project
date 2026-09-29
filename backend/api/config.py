@@ -67,10 +67,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     
     # ML Model Paths
-    MODEL_VERSION: str = "v1.0.1"
+    MODEL_VERSION: str = "v1.0.2"  # Must match scripts/train_model.py MODEL_VERSION
     LSTM_MODEL_PATH: str = f"../data/models/{MODEL_VERSION}/lstm_best.h5"
     SCALER_PATH: str = f"../data/models/{MODEL_VERSION}/scaler.pkl"
     ENCODER_PATH: str = f"../data/models/{MODEL_VERSION}/label_encoder.pkl"

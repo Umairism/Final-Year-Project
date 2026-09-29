@@ -189,7 +189,12 @@ Return ONLY a concise, human-readable clinical reasoning paragraph explaining wh
             gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
             
             payload = {
-                "contents": [{"parts": [{"text": f"{system_prompt}\n\nUser: {user_prompt}"}]}]
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "contents": [{"parts": [{"text": user_prompt}]}],
+                "generationConfig": {
+                    "maxOutputTokens": 200,
+                    "temperature": 0.2  # Low temp for clinical determinism
+                }
             }
             
             async with httpx.AsyncClient(timeout=30.0) as client:
