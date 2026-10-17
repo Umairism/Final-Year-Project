@@ -144,8 +144,11 @@ class TelemetryIngestionService:
                 "heart_rate": v.heart_rate,
                 "spo2": v.spo2,
                 "temperature": v.temperature,
-                "systolic_bp": v.systolic_bp or 120.0,
-                "diastolic_bp": v.diastolic_bp or 80.0
+                # Pass through None when BP was not measured; PredictionService
+                # imputes these with the training medians. Do NOT substitute
+                # 120/80 here — that would fabricate data at serve time.
+                "systolic_bp": v.systolic_bp,
+                "diastolic_bp": v.diastolic_bp
             }
             for v in reversed(vitals_history_records)
         ]

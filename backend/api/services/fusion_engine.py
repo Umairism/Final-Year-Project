@@ -28,8 +28,11 @@ class FusionEngine:
             heart_rate=vitals.heart_rate,
             spo2=vitals.spo2,
             temperature=vitals.temperature,
-            systolic_bp=vitals.systolic_bp or 120.0,
-            diastolic_bp=vitals.diastolic_bp or 80.0,
+            # BP is an optional contextual feature. If it was not measured, keep
+            # it as None so the rules engine skips BP checks rather than
+            # silently inventing a "normal" 120/80 reading.
+            systolic_bp=vitals.systolic_bp,
+            diastolic_bp=vitals.diastolic_bp,
             
             age=patient.age,
             age_missing=patient.age is None,
@@ -57,7 +60,10 @@ class FusionEngine:
         elif features.heart_rate > 150 or features.heart_rate < 40:
             triggered_rules.append("Severe Arrhythmia/Tachycardia/Bradycardia")
             risk_class = HealthStatus.CRITICAL
-        elif features.systolic_bp >= 180 or features.diastolic_bp >= 120:
+        elif (
+            (features.systolic_bp is not None and features.systolic_bp >= 180)
+            or (features.diastolic_bp is not None and features.diastolic_bp >= 120)
+        ):
             triggered_rules.append("Hypertensive Crisis")
             risk_class = HealthStatus.CRITICAL
             
@@ -103,7 +109,8 @@ class FusionEngine:
                 "confidence_score": deterministic_output["rule_confidence"],
                 "deterministic_flags": deterministic_output["triggered_rules"],
                 "ml_risk_probability": ml_prediction["probability"] if ml_prediction else None,
-                "fusion_method": "deterministic_override"
+                "fusion_method": "deterministic_override",
+                "ml_escalation_capped": False
             }
             
         # 2. Weighted Fusion
@@ -131,13 +138,26 @@ class FusionEngine:
             final_risk = "warning"
         else:
             final_risk = "normal"
-            
+
+        # ── Safety Invariant 2 (v1.1) ────────────────────────────────────────
+        # The ML layer may raise a patient to WARNING (early warning is its job),
+        # but it may NEVER create a CRITICAL state that the deterministic rules
+        # did not independently authorise. Without this cap, a WARNING patient
+        # (0.5 * 0.6) plus an ML "critical" (1.0 * 0.4) reached exactly 0.70 and
+        # produced an ML-originated CRITICAL alarm.
+        det_class = deterministic_output["risk_class"]
+        ml_escalation_capped = False
+        if final_risk == "critical" and det_class != HealthStatus.CRITICAL:
+            final_risk = "warning"
+            ml_escalation_capped = True
+
         return {
             "final_risk_level": final_risk,
             "confidence_score": round(confidence, 2),
             "deterministic_flags": deterministic_output["triggered_rules"],
             "ml_risk_probability": round(ml_prob, 2) if ml_prob else None,
-            "fusion_method": "weighted_fusion" if ml_prediction else "deterministic_only"
+            "fusion_method": "weighted_fusion" if ml_prediction else "deterministic_only",
+            "ml_escalation_capped": ml_escalation_capped
         }
 
     async def generate_explanation(self, patient: Patient, fusion_result: Dict[str, Any]) -> str:

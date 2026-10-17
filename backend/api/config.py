@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     LSTM_MODEL_PATH: str = f"../data/models/{MODEL_VERSION}/lstm_best.h5"
     SCALER_PATH: str = f"../data/models/{MODEL_VERSION}/scaler.pkl"
     ENCODER_PATH: str = f"../data/models/{MODEL_VERSION}/label_encoder.pkl"
+    IMPUTER_PATH: str = f"../data/models/{MODEL_VERSION}/imputer.pkl"
     
     # Fusion Engine Hyperparameters
     DETERMINISTIC_WEIGHT: float = 0.6
