@@ -1,7 +1,7 @@
 """
 Pydantic schemas for API request/response models
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
@@ -219,6 +219,62 @@ class TelemetryResponse(BaseModel):
     status: HealthStatus
     fused_decision: dict
     explanation: Optional[str] = None
+
+
+# Blood Pressure Entry Models (intermittent cuff measurements)
+class BpEntryRequest(BaseModel):
+    """
+    A single blood-pressure measurement taken with an *intermittent* cuff
+    (Braun ExactFit 1, a BLE cuff, or clinician manual entry).
+
+    Blood pressure is measured episodically, while the wearable streams
+    HR / SpO2 / temperature continuously. A BP reading is therefore attached to
+    the most recent wearable row inside ``attach_window_minutes`` instead of
+    creating a new row that would have to invent the other three vitals.
+    """
+    systolic_bp: float = Field(..., ge=60, le=260, description="Systolic pressure (mmHg)")
+    diastolic_bp: float = Field(..., ge=30, le=200, description="Diastolic pressure (mmHg)")
+    pulse: Optional[float] = Field(None, ge=30, le=220,
+                                   description="Pulse rate shown by the cuff (bpm)")
+    measured_at: Optional[datetime] = Field(None,
+                                            description="When the measurement was taken (defaults to now)")
+    attach_window_minutes: int = Field(60, ge=1, le=720,
+                                       description="How far back to look for a wearable reading to attach to")
+    bp_source: BpSource = Field(BpSource.MANUAL_ENTRY,
+                                description="How the BP was obtained")
+    device_id: Optional[str] = Field(None,
+                                     description="Optional device id for standalone entries")
+    note: Optional[str] = Field(None,
+                                description="Free text, e.g. 'left arm, seated, 5 min rest'")
+
+    # Standalone fallback — only used when no wearable reading exists in the window.
+    heart_rate: Optional[float] = Field(None, ge=0, le=300)
+    spo2: Optional[float] = Field(None, ge=0, le=100)
+    temperature: Optional[float] = Field(None, ge=30, le=45)
+
+    @model_validator(mode="after")
+    def _validate_pulse_pressure(self):
+        if self.systolic_bp - self.diastolic_bp < 10:
+            raise ValueError("systolic_bp must be at least 10 mmHg higher than diastolic_bp")
+        return self
+
+
+class BpEntryResponse(BaseModel):
+    """Result of recording a BP measurement and re-running the risk pipeline."""
+    success: bool = True
+    attached: bool = Field(..., description="True when the BP was attached to an existing wearable reading")
+    vital_id: str
+    patient_id: str
+    systolic_bp: float
+    diastolic_bp: float
+    pulse: Optional[float] = None
+    bp_source: BpSource
+    category: str = Field(..., description="AHA/ACC blood-pressure category")
+    triggered_rules: List[str] = Field(default_factory=list)
+    status: HealthStatus
+    fused_decision: Optional[dict] = None
+    alert_id: Optional[str] = None
+    message: str
 
 
 class ApiResponse(BaseModel):

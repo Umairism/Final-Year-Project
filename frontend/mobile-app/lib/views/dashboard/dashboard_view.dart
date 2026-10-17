@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:healsense/providers/vitals_provider.dart';
+import 'package:healsense/views/bp/bp_entry_view.dart';
 import 'package:healsense/widgets/vital_card.dart';
 import 'package:healsense/core/theme/app_theme.dart';
 
@@ -58,6 +59,13 @@ class DashboardView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('HealSense Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.monitor_heart),
+            tooltip: 'Log blood pressure',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BpEntryView()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -165,6 +173,28 @@ class DashboardView extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          const ListTile(
+                            leading: Icon(Icons.speed),
+                            title: Text('Log Blood Pressure'),
+                            subtitle: Text('Cuff reading — Braun ExactFit 1'),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const BpEntryView()),
+                            ),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Enter systolic / diastolic'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),

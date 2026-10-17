@@ -15,7 +15,10 @@ from api.models.schemas import (
     VitalSigns as VitalSignsSchema,
     Alert as AlertSchema,
     TelemetryPayload,
+    BpEntryRequest,
+    BpEntryResponse,
 )
+from api.services.bp_service import bp_service
 from api.models.database import (
     Patient,
     VitalSigns,
@@ -442,6 +445,72 @@ async def create_vitals_from_phone(
         "alert_created": health_status != HealthStatus.NORMAL,
         "ai_analysis": ai_analysis
     }
+
+
+@router.post(
+    "/{patient_id}/bp",
+    response_model=BpEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record an intermittent blood-pressure measurement",
+)
+async def record_blood_pressure(
+    patient_id: str,
+    entry: BpEntryRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Record a BP reading from an oscillometric cuff (Braun ExactFit 1, BLE cuff)
+    or clinician entry.
+
+    The reading is attached to the most recent wearable row within
+    `attach_window_minutes` (default 60) so the LSTM sees a real BP without the
+    other vitals being invented. If no wearable row exists, supply
+    `heart_rate`, `spo2` and `temperature` to store a standalone reading —
+    otherwise the API replies 409 with the BP assessment attached.
+    """
+    return await bp_service.record_bp(patient_id, entry, db)
+
+
+@router.get("/{patient_id}/bp/history", summary="List recorded blood-pressure measurements")
+async def get_bp_history(
+    patient_id: str,
+    limit: int = 30,
+    db: Session = Depends(get_db),
+):
+    """Return the most recent rows that actually carry a BP measurement."""
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found",
+        )
+
+    rows = (
+        db.query(VitalSigns)
+        .filter(
+            VitalSigns.patient_id == patient_id,
+            VitalSigns.systolic_bp.isnot(None),
+            VitalSigns.diastolic_bp.isnot(None),
+        )
+        .order_by(VitalSigns.timestamp.desc())
+        .limit(max(1, min(limit, 500)))
+        .all()
+    )
+
+    return [
+        {
+            "vital_id": row.id,
+            "systolic_bp": row.systolic_bp,
+            "diastolic_bp": row.diastolic_bp,
+            "bp_source": row.bp_source.value if row.bp_source else None,
+            "heart_rate": row.heart_rate,
+            "spo2": row.spo2,
+            "temperature": row.temperature,
+            "status": row.status.value if row.status else None,
+            "timestamp": row.timestamp,
+        }
+        for row in rows
+    ]
 
 
 @router.post("/{patient_id}/emergency")

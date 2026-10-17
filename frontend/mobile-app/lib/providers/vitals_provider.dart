@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:healsense/models/bp_entry_result.dart';
 import 'package:healsense/models/vital_reading.dart';
 import 'package:healsense/services/api_service.dart';
 import 'package:healsense/services/realtime_service.dart';
@@ -124,13 +125,15 @@ class VitalsProvider with ChangeNotifier {
   }
 
   VitalReading _readingFromBackend(Map<String, dynamic> json) {
-    final systolic = (json['systolic_bp'] ?? 0).toString();
-    final diastolic = (json['diastolic_bp'] ?? 0).toString();
+    final systolic = json['systolic_bp'] as num?;
+    final diastolic = json['diastolic_bp'] as num?;
     return VitalReading(
       heartRate: (json['heart_rate'] as num?)?.toDouble() ?? 0,
       spo2: (json['spo2'] as num?)?.toDouble() ?? 0,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0,
-      bloodPressure: '$systolic/$diastolic',
+      bloodPressure: (systolic == null || diastolic == null)
+          ? 'Not measured'
+          : '${systolic.toStringAsFixed(0)}/${diastolic.toStringAsFixed(0)}',
       respiratoryRate: (json['respiratory_rate'] as num?)?.toDouble() ?? 0,
       timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ?? DateTime.now(),
     );
@@ -141,7 +144,8 @@ class VitalsProvider with ChangeNotifier {
       heartRate: (json['heart_rate'] as num?)?.toDouble() ?? 0,
       spo2: (json['spo2'] as num?)?.toDouble() ?? 0,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0,
-      bloodPressure: '120/80',
+      // Phone sensors cannot measure BP — never display a placeholder 120/80.
+      bloodPressure: 'Not measured',
       respiratoryRate: 16,
       timestamp: DateTime.now(),
     );
@@ -216,6 +220,33 @@ class VitalsProvider with ChangeNotifier {
       _error = 'Failed to fetch vital history: $e';
       notifyListeners();
     }
+  }
+
+  /// Records an intermittent BP reading (Braun ExactFit 1 / manual entry) and
+  /// refreshes the dashboard so the new BP shows up immediately.
+  Future<BpEntryResult> recordBloodPressure({
+    required double systolic,
+    required double diastolic,
+    double? pulse,
+    double? heartRate,
+    double? spo2,
+    double? temperature,
+    String? note,
+  }) async {
+    final result = await _apiService.recordBloodPressure(
+      patientId: _patientId,
+      systolic: systolic,
+      diastolic: diastolic,
+      pulse: pulse,
+      heartRate: heartRate,
+      spo2: spo2,
+      temperature: temperature,
+      note: note,
+    );
+
+    await refreshLatestVitals();
+    await refreshHistory(minutes: 120);
+    return result;
   }
 
   Future<void> triggerEmergency() async {
