@@ -35,6 +35,7 @@ MODEL_DIR = f'../data/models/{MODEL_VERSION}'
 CHECKPOINT_PATH = f"{MODEL_DIR}/lstm_best.h5"
 SCALER_PATH = f"{MODEL_DIR}/scaler.pkl"
 ENCODER_PATH = f"{MODEL_DIR}/label_encoder.pkl"
+IMPUTER_PATH = f"{MODEL_DIR}/imputer.pkl"
 METADATA_PATH = f"{MODEL_DIR}/metadata.json"
 
 np.random.seed(CONFIG['random_seed'])
@@ -91,22 +92,63 @@ y_test_cat = to_categorical(y_test_encoded, num_classes=CONFIG['num_classes'])
 print("Normalizing features...")
 scaler = StandardScaler()
 
-def scale_3d(X_data, is_train=False):
+# ─── Imputation (v1.1 — replaces the physiologically-impossible -1.0 fill) ───
+# Missing values are now filled with the TRAINING-SET MEDIAN per feature, and
+# those medians are persisted to imputer.pkl. PredictionService loads the same
+# artifact at inference, so train-time and serve-time imputation are identical.
+# (The previous -1.0 sentinel produced bimodal, near-zero-variance columns that
+# corrupted the StandardScaler and caused train/serve skew.)
+CLINICAL_FALLBACKS = {
+    'heart_rate': 75.0,
+    'spo2': 98.0,
+    'temperature': 37.0,
+    'systolic_bp': 120.0,
+    'diastolic_bp': 80.0,
+}
+
+
+def compute_feature_medians(X_train_data):
+    """Median per feature, computed on the TRAINING split only (no leakage)."""
+    flat = X_train_data.reshape(-1, len(CONFIG['features']))
+    medians = {}
+    print("\nMissing-data report (training split):")
+    for idx, name in enumerate(CONFIG['features']):
+        col = flat[:, idx]
+        missing_pct = float(np.mean(np.isnan(col))) * 100.0
+        if np.all(np.isnan(col)):
+            medians[name] = CLINICAL_FALLBACKS[name]
+            print(f"  {name:14s} {missing_pct:6.2f}% missing — ENTIRELY ABSENT, using clinical fallback {medians[name]}")
+        else:
+            medians[name] = float(np.nanmedian(col))
+            print(f"  {name:14s} {missing_pct:6.2f}% missing — median {medians[name]:.2f}")
+    return medians
+
+
+def impute_3d(X_data, medians):
+    """Fill NaNs with stored training medians. Used identically at train and serve time."""
+    X = X_data.astype(np.float32, copy=True)
+    for idx, name in enumerate(CONFIG['features']):
+        col = X[:, :, idx]
+        col[np.isnan(col)] = medians[name]
+    return X
+
+
+def scale_3d(X_data, medians, is_train=False):
     n_samples, n_timesteps, n_features = X_data.shape
-    X_reshaped = X_data.reshape(-1, n_features)
-    
-    # Replace NaN with -1.0 directly to avoid dropping empty columns
-    X_imputed = np.where(np.isnan(X_reshaped), -1.0, X_reshaped)
-    
+
+    X_imputed = impute_3d(X_data, medians)
+    X_reshaped = X_imputed.reshape(-1, n_features)
+
     if is_train:
-        X_scaled = scaler.fit_transform(X_imputed)
+        X_scaled = scaler.fit_transform(X_reshaped)
     else:
-        X_scaled = scaler.transform(X_imputed)
+        X_scaled = scaler.transform(X_reshaped)
     return X_scaled.reshape(n_samples, n_timesteps, n_features)
 
-X_train_scaled = scale_3d(X_train, is_train=True)
-X_val_scaled = scale_3d(X_val, is_train=False)
-X_test_scaled = scale_3d(X_test, is_train=False)
+feature_medians = compute_feature_medians(X_train)
+X_train_scaled = scale_3d(X_train, feature_medians, is_train=True)
+X_val_scaled = scale_3d(X_val, feature_medians, is_train=False)
+X_test_scaled = scale_3d(X_test, feature_medians, is_train=False)
 
 print("Computing class weights...")
 class_weights_array = compute_class_weight(
@@ -165,13 +207,25 @@ print(confusion_matrix(y_test_encoded, y_pred))
 print("\nSaving artifacts...")
 joblib.dump(scaler, SCALER_PATH)
 joblib.dump(label_encoder, ENCODER_PATH)
+joblib.dump({
+    'feature_order': CONFIG['features'],
+    'medians': feature_medians,
+    'clinical_fallbacks': CLINICAL_FALLBACKS,
+    'strategy': 'training_median',
+    'model_version': MODEL_VERSION,
+}, IMPUTER_PATH)
 
 metadata = {
     'timestamp': datetime.now().isoformat(),
     'model_version': MODEL_VERSION,
     'config': CONFIG,
     'classes': label_encoder.classes_.tolist(),
-    'test_accuracy': float(test_acc)
+    'test_accuracy': float(test_acc),
+    'imputation': {
+        'strategy': 'training_median',
+        'medians': feature_medians,
+        'artifact': 'imputer.pkl'
+    }
 }
 with open(METADATA_PATH, 'w') as f:
     json.dump(metadata, f, indent=2)

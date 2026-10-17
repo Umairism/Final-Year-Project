@@ -10,25 +10,36 @@ from datetime import datetime, timedelta
 
 def evaluate_health_status(row):
     """
-    Classify health status based on clinical thresholds
+    Classify health status based on clinical thresholds.
     Returns: 'normal', 'warning', or 'critical'
+
+    SOURCE OF TRUTH: backend/api/services/fusion_engine.py
+    evaluate_deterministic_rules() (Layer 2). These thresholds MUST match it
+    exactly, otherwise synthetic training data is labelled under a different
+    rule set than the one used in production (label skew).
     """
-    # Critical thresholds (immediate danger)
-    if (row['heart_rate'] < 40 or row['heart_rate'] > 130 or
-        row['spo2'] < 90 or
-        row['temperature'] > 40 or
-        row['systolic_bp'] < 80 or row['systolic_bp'] > 180 or
-        row['diastolic_bp'] < 50 or row['diastolic_bp'] > 120):
+    hr = row['heart_rate']
+    spo2 = row['spo2']
+    temp = row['temperature']
+    sbp = row['systolic_bp']
+    dbp = row['diastolic_bp']
+
+    # ── CRITICAL (must match fusion_engine.py Layer 2) ──
+    if spo2 < 92:
         return 'critical'
-    
-    # Warning thresholds (concerning but not immediately dangerous)
-    if (row['heart_rate'] < 50 or row['heart_rate'] > 120 or
-        row['spo2'] < 92 or
-        row['temperature'] > 38.0 or
-        row['systolic_bp'] < 90 or row['systolic_bp'] > 140 or
-        row['diastolic_bp'] < 60 or row['diastolic_bp'] > 90):
+    if hr > 150 or hr < 40:
+        return 'critical'
+    if sbp >= 180 or dbp >= 120:
+        return 'critical'
+
+    # ── WARNING (must match fusion_engine.py Layer 2) ──
+    if spo2 < 95:
         return 'warning'
-    
+    if hr > 120 or hr < 50:
+        return 'warning'
+    if temp >= 38.0 or temp < 35.0:
+        return 'warning'
+
     return 'normal'
 
 def generate_vital_signs(num_samples=1000, patient_id=1):
