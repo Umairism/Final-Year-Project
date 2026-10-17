@@ -47,7 +47,9 @@ bool TelemetryClient::sendTelemetry(const TelemetryRecord& record) {
 
     // Direct HTTP POST over HTTPS
     String payload = serializePayload(record);
-    bool success = true; // Simulated HTTP POST result
+    // NOTE: main.cpp implements the real transport. This helper is retained for
+    // the class-based structure; if you use it, wire the HTTP call here.
+    bool success = false; // was `true` — that simulated a delivery that never happened
 
     if (!success) {
         // HTTP send failed: store in NVS Ring Buffer
@@ -68,7 +70,12 @@ void TelemetryClient::flushQueue() {
         if (storage.peekRecord(record)) {
             record.delayed_sync = true;
             String payload = serializePayload(record);
-            // Submit to /api/v1/telemetry
+            // BUGFIX: this previously dequeued unconditionally, destroying the
+            // record without ever attempting delivery. Only dequeue on success.
+            bool delivered = false;   // replace with real HTTP result
+            if (!delivered) {
+                break;                // keep the record queued and retry later
+            }
             storage.dequeueRecord(record);
         }
     }
