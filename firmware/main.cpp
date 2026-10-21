@@ -85,8 +85,9 @@ MAX30105 particleSensor;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Preferences prefs;
 
-// MAX30102 sample buffers (100 Hz x 4 s = 400 samples)
-#define BUFFER_SIZE 400
+// The Maxim algorithm expects 100 samples; 100 Hz with 4-sample averaging
+// gives an effective 25 samples/s, so 100 samples represents a 4 s window.
+#define BUFFER_SIZE 100
 uint32_t irBuffer[BUFFER_SIZE];
 uint32_t redBuffer[BUFFER_SIZE];
 
@@ -111,9 +112,10 @@ struct Record {
 
 bool initSensors() {
   Wire.begin(21, 22);          // SDA, SCL — default ESP32 pins
-  Wire.setClock(400000);
+  // MLX90614 is SMBus (100 kHz max); 400 kHz makes it disappear/return NaN.
+  Wire.setClock(I2C_SPEED_STANDARD);
 
-  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
+  if (!particleSensor.begin(Wire, I2C_SPEED_STANDARD)) {
     Serial.println("[FATAL] MAX30102 not found. Check wiring / address 0x57.");
     return false;
   }
@@ -145,13 +147,14 @@ bool initSensors() {
 
 /**
  * Fills the sample buffer, then runs the Maxim algorithm.
- * This BLOCKS for ~4 seconds (BUFFER_SIZE / 100 Hz).
+ * This BLOCKS for ~4 seconds (100 samples at an effective 25 samples/s).
  * The MAX30102 gives raw photodiode counts only — it does not compute HR/SpO2
  * in hardware. This DSP is unavoidable.
  */
 bool readVitals() {
   // Prime the buffer with one reading per sample slot
-  for (byte i = 0; i < BUFFER_SIZE; i++) {
+  // byte wraps at 255, so byte i < 400 would never terminate.
+  for (uint16_t i = 0; i < BUFFER_SIZE; i++) {
     while (!particleSensor.available()) {
       particleSensor.check();      // pump the FIFO
     }
