@@ -185,24 +185,26 @@ async def get_fusion_risk(patient_id: str, db: Session = Depends(get_db)):
     # 4. Layer 2: Deterministic Rules
     deterministic_output = fusion_engine.evaluate_deterministic_rules(features)
     
-    # 5. Layer 3: ML Model Prediction (Fetch 60 history sequence)
+    # 5. Layer 3: ML Model Prediction (fetch the model's history sequence)
     vitals_history_records = (
         db.query(VitalSigns)
         .filter(VitalSigns.patient_id == patient_id)
         .order_by(VitalSigns.timestamp.desc())
-        .limit(60)
+        .limit(prediction_service.sequence_length)
         .all()
     )
     
     ml_prediction = None
-    if len(vitals_history_records) == 60:
+    if len(vitals_history_records) >= prediction_service.sequence_length:
         vitals_history = [
             {
                 "heart_rate": v.heart_rate,
                 "spo2": v.spo2,
                 "temperature": v.temperature,
-                "systolic_bp": v.systolic_bp or 120.0,
-                "diastolic_bp": v.diastolic_bp or 80.0
+                # Preserve None so prediction_service imputes training medians
+                # and missing indicators; never fabricate BP.
+                "systolic_bp": v.systolic_bp,
+                "diastolic_bp": v.diastolic_bp
             }
             for v in reversed(vitals_history_records)
         ]
@@ -383,7 +385,7 @@ async def create_vitals_from_phone(
         db.query(VitalSigns)
         .filter(VitalSigns.patient_id == patient_id)
         .order_by(VitalSigns.timestamp.desc())
-        .limit(60)
+        .limit(prediction_service.sequence_length)
         .all()
     )
     vitals_history = [
@@ -391,8 +393,10 @@ async def create_vitals_from_phone(
             "heart_rate": v.heart_rate,
             "spo2": v.spo2,
             "temperature": v.temperature,
-            "systolic_bp": v.systolic_bp or 120.0,
-            "diastolic_bp": v.diastolic_bp or 80.0
+            # Preserve None so prediction_service imputes training medians
+            # and missing indicators; never fabricate BP.
+            "systolic_bp": v.systolic_bp,
+            "diastolic_bp": v.diastolic_bp
         }
         for v in reversed(vitals_history_records)
     ]
