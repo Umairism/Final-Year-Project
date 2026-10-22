@@ -1,0 +1,51 @@
+{
+  "model_version": "v1.0.2",
+  "timestamp": "2026-10-17T09:22:40",
+  "source": "PhysioNet/CinC Challenge 2019 v1.0.0 (CC BY 4.0)",
+  "preset": "medium",
+  "params": 124931,
+  "sequence_length": 24,
+  "horizon_hours": 6,
+  "feature_order": [
+    "HR",
+    "O2Sat",
+    "Temp",
+    "SBP",
+    "DBP"
+  ],
+  "class_names": [
+    "normal",
+    "warning",
+    "critical"
+  ],
+  "include_missing_indicators": true,
+  "n_input_features": 10,
+  "label_scheme": "future_window_max_severity",
+  "imputation": {
+    "strategy": "training_median",
+    "medians": {
+      "HR": 85.0,
+      "O2Sat": 98.0,
+      "Temp": 37.16999816894531,
+      "SBP": 119.0,
+      "DBP": 58.5
+    }
+  },
+  "data": {
+    "train_windows": 34031,
+    "val_windows": 6499,
+    "test_windows": 7116,
+    "train_patients": 1551,
+    "val_patients": 332,
+    "test_patients": 333
+  },
+  "metrics": {
+    "val_accuracy": 0.5797815322875977,
+    "train_val_gap": 0.025431334972381592,
+    "test_macro_f1": 0.5354743994992419
+  },
+  "known_limitations": [
+    "Labels are rules-derived future-window proxies, not clinical outcome labels.",
+    "Missing indicators are fed to the model; medians compress variance of missing features."
+  ]
+}
