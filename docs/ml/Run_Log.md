@@ -109,7 +109,7 @@ true critical       1261          1386           3083
 
 ---
 
-## Run 2 — TUNED (planned)
+## Run 2 — TUNED (completed)
 
 **Changes from Run 1 — exactly three, everything else frozen:**
 
@@ -130,7 +130,7 @@ true critical       1261          1386           3083
 
 | | Value |
 |---|---|
-| Total params | 33,923 |
+| Total params | 32,771 |
 | Steps per epoch | 1,715 (Run 1: 869 → ~2× data ✅) |
 | Best epoch | **9** |
 | Early stop epoch | 14 |
@@ -147,28 +147,25 @@ true critical       1261          1386           3083
 | Weight sweep shows 0.6 not optimal | ⏳ pending |
 | Critical F1 improves on larger cohort | ⏳ pending |
 
-**Artifacts (Run 2, confirmed):** `lstm_best.h5` **439.7 KB** — consistent with the
-`small` preset (33,923 params). Run 1's `medium` model was 1,544.6 KB, so the smaller
-file confirms this is the Run 2 model, not a leftover. Also `scaler.pkl` 0.7 KB,
-`label_encoder.pkl` 0.4 KB, `imputer.pkl` 0.4 KB, `model_meta.json` 1.2 KB, packaged
-as `healsense_model.zip`.
+**Artifacts (Run 2, confirmed):** the `small` preset contains 32,771 parameters.
+Run 2 identity is determined by the verified metadata metrics, not by the artifact
+folder name. `Collab_Notebook_Results/v1.0.2/` is a subset medium run with 1,551
+training patients, not documented Run 1.
 
-> **Evaluation PENDING.** The *Evaluate* and *Save artifacts* cells produced no output
-> (stuck/queued). The trained model at `/kaggle/working/healsense/v1.0.2/lstm_best.h5`
-> is intact — **no retraining needed.** Recovery: `RECOVER_RUN2.md`.
->
-> ⚠️ **Artifact integrity:** `scaler.pkl`, `label_encoder.pkl`, `imputer.pkl` are written
-> only by the Save cell. If it never completed, those are from Run 1 while the model is
-> from Run 2 — a mismatched set. Check timestamps before committing.
-
-**Data (fill in once evaluation runs)**
+**Data and verified evaluation results** (source: `model_meta.json` metrics)
 
 | | Value |
 |---|---|
-| Patients used | |
-| Windows | |
-| Train / Val / Test | |
-| Train patients | |
+| Patients used | 20,470 / 4,387 / 4,387 |
+| Windows | 438,859 / 94,470 / 94,762 |
+| Train / Val / Test | 438,859 / 94,470 / 94,762 windows |
+| Train patients | 20,470 |
+| Validation accuracy | 0.5958 |
+| Train/validation gap | 0.0345 |
+| Test macro-F1 | 0.5675 |
+
+Test accuracy, per-class results, ablation, and early-warning capture remain pending
+the detailed Kaggle re-evaluation. These values are intentionally not inferred here.
 
 
 **Ablation**
@@ -204,7 +201,7 @@ as `healsense_model.zip`.
 
 | Metric | Run 1 (baseline) | Run 2 (tuned) | Δ |
 |---|---|---|---|
-| Preset | medium (124,931) | small (33,923) | |
+| Preset | medium (124,931) | small (32,771) | |
 | Patients | 14,961 | | |
 | Windows | 317,749 | | |
 | Train/val gap | +0.0550 ⚠️ | | |
@@ -224,8 +221,10 @@ Present Run 1 as an **honest baseline with disclosed limitations**, then Run 2 a
 > "The first implementation achieved a macro-F1 of 0.549 with an early-warning capture
 > of 61.4 %, but exhibited a train/validation gap of 0.055 and — due to a data-loading
 > defect discovered after the fact — was trained on only half the available cohort.
-> Both issues were corrected: the model was reduced to 33,923 parameters and the full
-> 40,336-patient cohort was used. This yielded [Run 2 results]."
+> Both issues were corrected: the model was reduced to 32,771 parameters and the full
+> 29,244-patient train/validation/test split was used. This yielded the verified Run 2
+> validation accuracy of 0.5958, train/validation gap of 0.0345, and test macro-F1 of
+> 0.5675; detailed Kaggle re-evaluation remains pending."
 
 Disclosing the defect yourself is much stronger than having it found in the viva.
 
