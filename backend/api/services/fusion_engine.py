@@ -1,8 +1,8 @@
-import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from api.config import get_settings
+from api.services.gemini_service import generate_text, GeminiNotConfiguredError, GeminiUpstreamError
 from api.models.schemas import CanonicalClinicalFeatureSchema, HealthStatus
 from api.models.database.models import Patient, VitalSigns
 from api.services.prediction_service import prediction_service
@@ -162,9 +162,6 @@ class FusionEngine:
 
     async def generate_explanation(self, patient: Patient, fusion_result: Dict[str, Any]) -> str:
         """Layer 5: LLM Explanation Layer (Gemini)"""
-        if not settings.GEMINI_API_KEY:
-            return "AI Explanation unavailable. (GEMINI_API_KEY not configured)"
-            
         system_prompt = """SYSTEM PROMPT: Clinical Hybrid Risk Engine
 
 You are a clinical decision-support reasoning engine that evaluates patient risk using a hybrid architecture consisting of:
@@ -206,30 +203,12 @@ OUTPUT FORMAT:
 Return ONLY a concise, human-readable clinical reasoning paragraph explaining why this decision was reached. Do not include any JSON or markdown headers.
 """
         try:
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-            
-            payload = {
-                "system_instruction": {"parts": [{"text": system_prompt}]},
-                "contents": [{"parts": [{"text": user_prompt}]}],
-                "generationConfig": {
-                    "maxOutputTokens": 200,
-                    "temperature": 0.2  # Low temp for clinical determinism
-                }
-            }
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(gemini_url, json=payload)
-                
-            if response.status_code >= 400:
-                logger.error(f"Gemini error: {response.text}")
-                return "Failed to generate AI reasoning due to API error."
-                
-            data = response.json()
-            explanation = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-            return explanation.strip()
-            
-        except Exception as e:
-            logger.error(f"Failed to generate LLM explanation: {str(e)}")
+            return await generate_text(system_prompt, user_prompt, max_output_tokens=200, temperature=0.2)
+        except GeminiNotConfiguredError:
+            return "AI Explanation unavailable. (GEMINI_API_KEY not configured)"
+        except GeminiUpstreamError:
+            return "Failed to generate AI reasoning due to API error."
+        except Exception:
             return "Failed to generate clinical reasoning."
 
 fusion_engine = FusionEngine()
