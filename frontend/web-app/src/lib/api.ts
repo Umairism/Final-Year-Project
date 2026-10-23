@@ -24,8 +24,10 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        const error: ApiError = await response.json();
-        throw new Error(error.message || 'API request failed');
+        const error: ApiError & { detail?: unknown } = await response.json();
+        const detail = error.detail;
+        const message = typeof detail === 'string' ? detail : detail ? JSON.stringify(detail) : error.message || 'API request failed';
+        throw Object.assign(new Error(message), { status: response.status, detail });
       }
 
       const payload = await response.json();
@@ -79,7 +81,7 @@ export const toVitalReading = (payload: Record<string, unknown>): VitalReading =
   temperature: Number(payload.temperature ?? 0),
   systolic: payload.systolic_bp == null ? null : Number(payload.systolic_bp),
   diastolic: payload.diastolic_bp == null ? null : Number(payload.diastolic_bp),
-  respiratoryRate: Number(payload.respiratory_rate ?? 0),
+  respiratoryRate: payload.respiratory_rate == null ? null : Number(payload.respiratory_rate),
   bpSource: payload.bp_source as string | undefined,
   status: payload.status as VitalStatus | undefined,
   riskScore: payload.risk_score == null ? null : Number(payload.risk_score),
@@ -104,7 +106,7 @@ export const vitalsApi = {
 
   getHistory: async (patientId: string, minutes: number = 60): Promise<VitalReading[]> => {
     const payload = await apiClient.get<Record<string, unknown>[]>(API_ENDPOINTS.vitalHistory(patientId, minutes));
-    return payload.map(toVitalReading);
+    return payload.map(toVitalReading).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   },
 
   submit: async (reading: VitalReadingRequest): Promise<VitalReading> => {
@@ -156,8 +158,11 @@ export const deviceApi = {
     return apiClient.get(API_ENDPOINTS.patientDeviceSources(patientId));
   },
 
-  connect: async (deviceId: string): Promise<void> => {
-    return apiClient.post<void>(API_ENDPOINTS.deviceConnect(deviceId), {});
+  connect: async (deviceId: string, patientId: string): Promise<void> => {
+    return apiClient.post<void>(`${API_ENDPOINTS.deviceConnect(deviceId)}?patient_id=${encodeURIComponent(patientId)}`, {});
+  },
+  disconnect: async (deviceId: string): Promise<void> => {
+    return apiClient.post<void>(API_ENDPOINTS.deviceDisconnect(deviceId), {});
   },
 };
 
@@ -193,7 +198,7 @@ export const bpApi = {
   record: (patientId: string, payload: BpEntryPayload) =>
     apiClient.post<BpEntryResponse>(API_ENDPOINTS.bp(patientId), payload),
   history: (patientId: string, limit = 5) =>
-    apiClient.get<Array<{ measured_at?: string; systolic_bp: number; diastolic_bp: number; category: string }>>(
+    apiClient.get<Array<{ timestamp?: string; systolic_bp: number; diastolic_bp: number; status?: string }>>(
       API_ENDPOINTS.bpHistory(patientId, limit)
     ),
 };
