@@ -137,11 +137,11 @@ async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors"""
     return JSONResponse(
         status_code=404,
-        content={
+        content=(exc.detail if isinstance(exc.detail, dict) else {
             "detail": "Resource not found",
             "path": str(request.url),
             "timestamp": datetime.utcnow().isoformat()
-        }
+        })
     )
 
 # TODO: Include routers
