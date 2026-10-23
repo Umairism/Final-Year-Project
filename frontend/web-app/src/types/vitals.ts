@@ -6,9 +6,15 @@ export interface VitalReading {
   heartRate: number;
   spo2: number;
   temperature: number;
-  systolic: number;
-  diastolic: number;
+  systolic: number | null;
+  diastolic: number | null;
   respiratoryRate: number;
+  bpSource?: string;
+  status?: VitalStatus;
+  riskScore?: number | null;
+  predictionConfidence?: number | null;
+  probabilityDistribution?: Record<string, number> | null;
+  delayedSync?: boolean;
 }
 
 export interface VitalThresholds {

@@ -50,8 +50,8 @@ export const HistoryTable = ({ readings }: HistoryTableProps) => {
       r.heartRate,
       r.spo2,
       r.temperature,
-      r.systolic,
-      r.diastolic,
+      r.systolic ?? '—',
+      r.diastolic ?? '—',
       r.respiratoryRate,
     ]);
 
@@ -122,7 +122,7 @@ export const HistoryTable = ({ readings }: HistoryTableProps) => {
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('systolic', reading.systolic)} />
                     <span>
-                      {reading.systolic}/{reading.diastolic}
+                      {reading.systolic == null || reading.diastolic == null ? '—' : `${reading.systolic}/${reading.diastolic}`}
                     </span>
                   </div>
                 </TableCell>

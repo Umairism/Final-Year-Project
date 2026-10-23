@@ -1,5 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
-import { VitalReading, PatientProfile, Alert } from '@/types/vitals';
+import { VitalReading, PatientProfile, Alert, VitalStatus } from '@/types/vitals';
 import { ApiResponse, ApiError, VitalReadingRequest, EmergencyRequest } from '@/types/api';
 
 // API Client with error handling
@@ -71,6 +71,23 @@ class ApiClient {
 // Initialize API client
 const apiClient = new ApiClient(API_CONFIG.baseUrl);
 
+export const toVitalReading = (payload: Record<string, unknown>): VitalReading => ({
+  id: String(payload.id ?? crypto.randomUUID()),
+  timestamp: new Date(String(payload.timestamp)),
+  heartRate: Number(payload.heart_rate ?? 0),
+  spo2: Number(payload.spo2 ?? 0),
+  temperature: Number(payload.temperature ?? 0),
+  systolic: payload.systolic_bp == null ? null : Number(payload.systolic_bp),
+  diastolic: payload.diastolic_bp == null ? null : Number(payload.diastolic_bp),
+  respiratoryRate: Number(payload.respiratory_rate ?? 0),
+  bpSource: payload.bp_source as string | undefined,
+  status: payload.status as VitalStatus | undefined,
+  riskScore: payload.risk_score == null ? null : Number(payload.risk_score),
+  predictionConfidence: payload.prediction_confidence == null ? null : Number(payload.prediction_confidence),
+  probabilityDistribution: payload.full_probability_distribution as Record<string, number> | null | undefined,
+  delayedSync: Boolean(payload.delayed_sync ?? false),
+});
+
 // Patient API
 export const patientApi = {
   getProfile: async (patientId: string): Promise<PatientProfile> => {
@@ -81,11 +98,13 @@ export const patientApi = {
 // Vitals API
 export const vitalsApi = {
   getLatest: async (patientId: string): Promise<VitalReading> => {
-    return apiClient.get<VitalReading>(API_ENDPOINTS.latestVital(patientId));
+    const payload = await apiClient.get<Record<string, unknown>>(API_ENDPOINTS.latestVital(patientId));
+    return toVitalReading(payload);
   },
 
   getHistory: async (patientId: string, minutes: number = 60): Promise<VitalReading[]> => {
-    return apiClient.get<VitalReading[]>(API_ENDPOINTS.vitalHistory(patientId, minutes));
+    const payload = await apiClient.get<Record<string, unknown>[]>(API_ENDPOINTS.vitalHistory(patientId, minutes));
+    return payload.map(toVitalReading);
   },
 
   submit: async (reading: VitalReadingRequest): Promise<VitalReading> => {

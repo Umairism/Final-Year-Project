@@ -44,7 +44,7 @@ export const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const PATIENT_ID = user?.id || '1';
+  const PATIENT_ID = import.meta.env.VITE_PATIENT_ID || 'P001';
 
   const {
     currentReading,
@@ -115,7 +115,7 @@ export const Dashboard = () => {
     heartRate: r.heartRate,
     spo2: r.spo2,
     temperature: r.temperature,
-    riskScore: 0.1,
+    riskScore: r.riskScore ?? 0,
   }));
 
   return (
@@ -186,13 +186,18 @@ export const Dashboard = () => {
         {/* Risk Assessment & Decision Support Explanation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <RiskGauge
-            status={currentReading.spo2 < 92 || currentReading.heartRate > 120 ? 'critical' : currentReading.spo2 < 95 || currentReading.heartRate > 100 ? 'warning' : 'normal'}
-            score={currentReading.spo2 < 92 ? 0.95 : currentReading.spo2 < 95 ? 0.65 : 0.12}
-            deterministicFlags={currentReading.spo2 < 92 ? ['SpO2 < 92% (Hypoxia Risk)'] : []}
-            mlProbability={0.15}
+            status={currentReading.status ?? (currentReading.spo2 < 92 || currentReading.heartRate > 120 ? 'critical' : currentReading.spo2 < 95 || currentReading.heartRate > 100 ? 'warning' : 'normal')}
+            score={currentReading.riskScore ?? (currentReading.spo2 < 92 ? 0.95 : currentReading.spo2 < 95 ? 0.65 : 0.12)}
+            deterministicFlags={[
+              ...(currentReading.systolic != null && currentReading.diastolic != null && (currentReading.systolic >= 180 || currentReading.diastolic >= 120)
+                ? ['Hypertensive crisis (BP ≥ 180/120)'] : []),
+              ...(currentReading.spo2 < 92 ? ['SpO2 < 92% (Hypoxia Risk)'] : []),
+            ]}
+            mlProbability={currentReading.predictionConfidence ?? null}
           />
           <GeminiExplanationCard
-            explanation="Patient vital parameters are currently within normal physiological thresholds. Heart rate and SpO2 display steady baseline consistency."
+            // TODO: wire GET /patients/{id}/fusion_risk clinical_reasoning after the Gemini fix.
+            explanation={null}
             timestamp={currentReading.timestamp}
           />
         </div>
@@ -234,17 +239,15 @@ export const Dashboard = () => {
               <BloodPressureCard
                 systolic={currentReading.systolic}
                 diastolic={currentReading.diastolic}
-                bpSource="none"
+                bpSource={currentReading.bpSource ?? 'none'}
                 status={getVitalStatus('systolic', currentReading.systolic)}
-                delayedSync={false}
+                delayedSync={currentReading.delayedSync ?? false}
               />
             </div>
 
             {/* Vital Trend Chart */}
             <VitalTrendChart data={chartData} />
-          </TabsContent>
-
-            {/* Quick Charts */}
+             {/* Quick Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TrendChart
                 title="Heart Rate"
@@ -262,10 +265,10 @@ export const Dashboard = () => {
                 unit="%"
                 thresholds={{ warningMin: 95 }}
               />
-            </div>
-          </TabsContent>
+             </div>
+           </TabsContent>
 
-          <TabsContent value="trends" className="space-y-4 animate-fade-in">
+           <TabsContent value="trends" className="space-y-4 animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TrendChart
                 title="Heart Rate"

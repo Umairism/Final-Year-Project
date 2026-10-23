@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { vitalsApi, alertsApi } from '@/lib/api';
+import { vitalsApi, alertsApi, toVitalReading } from '@/lib/api';
 import { API_CONFIG } from '@/lib/config';
 import { VitalReading, VitalStatus, DEFAULT_THRESHOLDS, Alert } from '@/types/vitals';
 import { useVitalsWebSocket } from '@/hooks/useWebSocket';
@@ -56,8 +56,9 @@ const generateHistoricalData = (minutes: number): VitalReading[] => {
 
 export const getVitalStatus = (
   vital: keyof typeof DEFAULT_THRESHOLDS,
-  value: number
+  value: number | null
 ): VitalStatus => {
+  if (value == null) return 'normal';
   const thresholds = DEFAULT_THRESHOLDS[vital];
 
   if (vital === 'spo2') {
@@ -84,20 +85,6 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   );
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isConnected, setIsConnected] = useState(true);
-
-  const toVitalReading = useCallback((payload: Record<string, unknown>): VitalReading => {
-    const now = new Date();
-    return {
-      id: String(payload.id ?? generateId()),
-      timestamp: new Date(String(payload.timestamp ?? now.toISOString())),
-      heartRate: Number(payload.heart_rate ?? payload.heartRate ?? 0),
-      spo2: Number(payload.spo2 ?? 0),
-      temperature: Number(payload.temperature ?? 0),
-      systolic: Number(payload.systolic_bp ?? payload.systolic ?? 0),
-      diastolic: Number(payload.diastolic_bp ?? payload.diastolic ?? 0),
-      respiratoryRate: Number(payload.respiratory_rate ?? payload.respiratoryRate ?? 0),
-    };
-  }, []);
 
   // Fetch historical vitals from API
   const { data: historicalData } = useQuery<VitalReading[]>({
