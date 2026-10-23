@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from api.services.telemetry_service import resolve_data_origin
 from api.services.device_presence import compute_device_presence
+from fastapi.testclient import TestClient
+from api.app import app
 
 class Device:
     def __init__(self, connected=True, last_heartbeat=None): self.connected=connected; self.last_heartbeat=last_heartbeat

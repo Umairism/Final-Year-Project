@@ -533,7 +533,7 @@ async def trigger_emergency(patient_id: str, db: Session = Depends(get_db)):
     emergency = Emergency(
         id=str(uuid.uuid4()),
         patient_id=patient_id,
-        status="dispatched",
+        status="recorded",
         triggered_at=datetime.utcnow()
     )
     
@@ -555,7 +555,7 @@ async def trigger_emergency(patient_id: str, db: Session = Depends(get_db)):
         "patient_id": patient_id,
         "triggered_at": emergency.triggered_at,
         "status": emergency.status,
-        "message": "Emergency services have been notified"
+            "message": "Emergency event recorded; external notification is not configured."
     }
 
 
