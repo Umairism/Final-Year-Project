@@ -331,7 +331,7 @@ export const Dashboard = () => {
       </main>
 
       {/* Emergency Button */}
-      <EmergencyButton />
+      <EmergencyButton patientId={PATIENT_ID} />
 
       {/* Dialogs */}
       <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />

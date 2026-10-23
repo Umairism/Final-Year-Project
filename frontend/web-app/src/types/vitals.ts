@@ -8,7 +8,7 @@ export interface VitalReading {
   temperature: number;
   systolic: number | null;
   diastolic: number | null;
-  respiratoryRate: number;
+  respiratoryRate: number | null;
   bpSource?: string;
   status?: VitalStatus;
   riskScore?: number | null;

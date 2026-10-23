@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   // Device/IoT
   deviceStatus: (deviceId: string) => `/devices/${deviceId}/status`,
   deviceConnect: (deviceId: string) => `/devices/${deviceId}/connect`,
+  deviceDisconnect: (deviceId: string) => `/devices/${deviceId}/disconnect`,
   patientDeviceSources: (patientId: string) => `/devices/patient/${patientId}/sources`,
   bp: (patientId: string) => `/patients/${patientId}/bp`,
   bpHistory: (patientId: string, limit: number) => `/patients/${patientId}/bp/history?limit=${limit}`,

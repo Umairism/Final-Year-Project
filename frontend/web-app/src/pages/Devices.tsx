@@ -1,18 +1,21 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { deviceApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Cpu, Wifi, WifiOff, Battery, Clock, ShieldCheck } from 'lucide-react';
 
 export const Devices = () => {
-  const PATIENT_ID = '1';
+  const PATIENT_ID = import.meta.env.VITE_PATIENT_ID || 'P001';
+  const queryClient = useQueryClient();
 
   const { data: sourceData, isLoading } = useQuery({
     queryKey: ['patient-device-sources', PATIENT_ID],
     queryFn: () => deviceApi.getPatientSources(PATIENT_ID),
     refetchInterval: 5000,
   });
+  const action = useMutation({ mutationFn: ({ id, connected }: { id: string; connected: boolean }) => connected ? deviceApi.disconnect(id) : deviceApi.connect(id, PATIENT_ID), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patient-device-sources', PATIENT_ID] }) });
 
   const devicesList = sourceData?.data_sources || [
     {
@@ -88,6 +91,7 @@ export const Devices = () => {
                 </span>
                 <span>{dev.last_seen ? new Date(dev.last_seen).toLocaleTimeString() : 'N/A'}</span>
               </div>
+              <Button className="w-full" variant="outline" disabled={action.isPending} onClick={() => action.mutate({ id: dev.device_id, connected: dev.connected })}>{action.isPending ? 'Updating…' : dev.connected ? 'Disconnect' : 'Connect'}</Button>
             </CardContent>
           </Card>
         ))}

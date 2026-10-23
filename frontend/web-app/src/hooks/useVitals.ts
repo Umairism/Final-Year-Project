@@ -84,12 +84,12 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
     useMockData ? generateHistoricalData(60) : []
   );
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(useMockData);
 
   // Fetch historical vitals from API
   const { data: historicalData } = useQuery<VitalReading[]>({
     queryKey: ['vitals-history', patientId],
-    queryFn: () => vitalsApi.getHistory(patientId, 60),
+    queryFn: () => vitalsApi.getHistory(patientId, 1440),
     enabled: !useMockData,
     refetchInterval: 60000, // Refetch every minute
   });
@@ -106,6 +106,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   useEffect(() => {
     if (historicalData && !useMockData) {
       setReadings(historicalData);
+      setIsConnected(true);
     }
   }, [historicalData, useMockData]);
 
@@ -117,6 +118,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   }, [apiAlerts, useMockData]);
 
   const checkForAlerts = useCallback((reading: VitalReading) => {
+    if (!useMockData) return;
     const vitalTypes: (keyof typeof DEFAULT_THRESHOLDS)[] = [
       'heartRate', 'spo2', 'temperature', 'systolic', 'diastolic', 'respiratoryRate'
     ];
@@ -143,7 +145,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
     if (newAlerts.length > 0) {
       setAlerts((prev) => [...newAlerts, ...prev].slice(0, 50));
     }
-  }, []);
+  }, [useMockData]);
 
   const currentReading = readings[readings.length - 1];
 

@@ -10,19 +10,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { emergencyApi } from '@/lib/api';
 
-export const EmergencyButton = () => {
+export const EmergencyButton = ({ patientId }: { patientId: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleEmergencyCall = () => {
+  const handleEmergencyCall = async () => {
     setIsConfirming(true);
-    // Simulate emergency call
-    setTimeout(() => {
+    try { await emergencyApi.trigger({ patientId }); setMessage('Emergency alert dispatched.'); } catch { setMessage('Unable to dispatch emergency alert.'); } finally {
       setIsConfirming(false);
-      setIsOpen(false);
-      // In production, this would trigger actual emergency protocols
-    }, 2000);
+    }
   };
 
   return (
@@ -60,8 +59,9 @@ export const EmergencyButton = () => {
           <div className="p-4 rounded-lg bg-muted">
             <p className="text-sm font-medium mb-2">Emergency Contact:</p>
             <p className="text-sm text-muted-foreground">
-              Dr. Sarah Johnson • +1 (555) 123-4567
+              Your configured emergency contact and medical team
             </p>
+            {message && <p className="mt-2 text-sm font-medium">{message}</p>}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
