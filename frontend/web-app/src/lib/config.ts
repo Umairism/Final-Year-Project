@@ -30,6 +30,8 @@ export const API_ENDPOINTS = {
   deviceStatus: (deviceId: string) => `/devices/${deviceId}/status`,
   deviceConnect: (deviceId: string) => `/devices/${deviceId}/connect`,
   patientDeviceSources: (patientId: string) => `/devices/patient/${patientId}/sources`,
+  bp: (patientId: string) => `/patients/${patientId}/bp`,
+  bpHistory: (patientId: string, limit: number) => `/patients/${patientId}/bp/history?limit=${limit}`,
 };
 
 // WebSocket Topics

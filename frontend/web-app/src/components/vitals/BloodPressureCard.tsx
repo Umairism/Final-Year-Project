@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Activity } from 'lucide-react';
 import { BpSource } from '@/types/telemetry';
+import { Button } from '@/components/ui/button';
 
 interface BloodPressureCardProps {
   systolic?: number | null;
@@ -9,6 +10,7 @@ interface BloodPressureCardProps {
   bpSource?: BpSource;
   status?: 'normal' | 'warning' | 'critical';
   delayedSync?: boolean;
+  onLogBp?: () => void;
 }
 
 export const BloodPressureCard: React.FC<BloodPressureCardProps> = ({
@@ -17,6 +19,7 @@ export const BloodPressureCard: React.FC<BloodPressureCardProps> = ({
   bpSource = 'none',
   status = 'normal',
   delayedSync = false,
+  onLogBp,
 }) => {
   const renderSourceBadge = () => {
     switch (bpSource) {
@@ -42,6 +45,7 @@ export const BloodPressureCard: React.FC<BloodPressureCardProps> = ({
           <span className="text-sm font-medium text-muted-foreground">Blood Pressure</span>
         </div>
         <div className="flex gap-2">
+          {onLogBp && <Button variant="outline" size="sm" onClick={onLogBp}>Log BP</Button>}
           {delayedSync && (
             <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
               Delayed Sync

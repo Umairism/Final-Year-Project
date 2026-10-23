@@ -160,3 +160,40 @@ export const deviceApi = {
     return apiClient.post<void>(API_ENDPOINTS.deviceConnect(deviceId), {});
   },
 };
+
+export interface BpEntryPayload {
+  systolic_bp: number;
+  diastolic_bp: number;
+  pulse?: number;
+  measured_at?: string;
+  note?: string;
+  bp_source: 'manual_entry';
+  heart_rate?: number;
+  spo2?: number;
+  temperature?: number;
+}
+
+export interface BpEntryResponse {
+  success: boolean;
+  attached: boolean;
+  vital_id: string;
+  patient_id: string;
+  systolic_bp: number;
+  diastolic_bp: number;
+  pulse?: number | null;
+  bp_source: string;
+  category: string;
+  triggered_rules: string[];
+  status: string;
+  alert_id?: string | null;
+  message: string;
+}
+
+export const bpApi = {
+  record: (patientId: string, payload: BpEntryPayload) =>
+    apiClient.post<BpEntryResponse>(API_ENDPOINTS.bp(patientId), payload),
+  history: (patientId: string, limit = 5) =>
+    apiClient.get<Array<{ measured_at?: string; systolic_bp: number; diastolic_bp: number; category: string }>>(
+      API_ENDPOINTS.bpHistory(patientId, limit)
+    ),
+};

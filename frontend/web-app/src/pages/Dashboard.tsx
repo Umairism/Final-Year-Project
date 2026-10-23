@@ -36,6 +36,7 @@ import { HeartRateCard } from '@/components/vitals/HeartRateCard';
 import { SpO2Card } from '@/components/vitals/SpO2Card';
 import { TemperatureCard } from '@/components/vitals/TemperatureCard';
 import { BloodPressureCard } from '@/components/vitals/BloodPressureCard';
+import { BpEntryDialog } from '@/components/vitals/BpEntryDialog';
 import { RiskGauge } from '@/components/risk/RiskGauge';
 import { GeminiExplanationCard } from '@/components/risk/GeminiExplanationCard';
 import { VitalTrendChart } from '@/components/vitals/VitalTrendChart';
@@ -74,6 +75,7 @@ export const Dashboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isBpEntryOpen, setIsBpEntryOpen] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -242,6 +244,7 @@ export const Dashboard = () => {
                 bpSource={currentReading.bpSource ?? 'none'}
                 status={getVitalStatus('systolic', currentReading.systolic)}
                 delayedSync={currentReading.delayedSync ?? false}
+                onLogBp={() => setIsBpEntryOpen(true)}
               />
             </div>
 
@@ -339,6 +342,7 @@ export const Dashboard = () => {
         onAcknowledge={acknowledgeAlert}
         onDismiss={dismissAlert}
       />
+      <BpEntryDialog patientId={PATIENT_ID} open={isBpEntryOpen} onOpenChange={setIsBpEntryOpen} />
     </div>
   );
 };
