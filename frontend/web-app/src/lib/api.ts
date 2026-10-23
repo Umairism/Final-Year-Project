@@ -135,8 +135,8 @@ export const alertsApi = {
 
 // Emergency API
 export const emergencyApi = {
-  trigger: async (request: EmergencyRequest): Promise<void> => {
-    return apiClient.post<void>(API_ENDPOINTS.emergency(request.patientId), request);
+  trigger: async (request: EmergencyRequest): Promise<{ emergency_id: string; patient_id: string; triggered_at: string; status: string; message: string }> => {
+    return apiClient.post(API_ENDPOINTS.emergency(request.patientId), request);
   },
 };
 

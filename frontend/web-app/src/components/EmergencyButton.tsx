@@ -15,11 +15,11 @@ import { emergencyApi } from '@/lib/api';
 export const EmergencyButton = ({ patientId }: { patientId: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [message, setMessage] = useState('');
+  const [result, setResult] = useState<any>(null); const [error, setError] = useState('');
 
   const handleEmergencyCall = async () => {
     setIsConfirming(true);
-    try { await emergencyApi.trigger({ patientId }); setMessage('Emergency alert dispatched.'); } catch { setMessage('Unable to dispatch emergency alert.'); } finally {
+    try { setError(''); setResult(await emergencyApi.trigger({ patientId })); } catch (e) { setError((e as Error).message); } finally {
       setIsConfirming(false);
     }
   };
@@ -51,17 +51,14 @@ export const EmergencyButton = ({ patientId }: { patientId: string }) => {
               Emergency Alert
             </DialogTitle>
             <DialogDescription>
-              This will immediately notify your emergency contact and medical team.
-              Are you sure you want to proceed?
+              This records an emergency event in HealSense and broadcasts it to connected dashboards. It does not place a phone call or send SMS/email in this FYP build.
             </DialogDescription>
           </DialogHeader>
 
           <div className="p-4 rounded-lg bg-muted">
-            <p className="text-sm font-medium mb-2">Emergency Contact:</p>
-            <p className="text-sm text-muted-foreground">
-              Your configured emergency contact and medical team
-            </p>
-            {message && <p className="mt-2 text-sm font-medium">{message}</p>}
+            <p className="text-sm font-medium mb-2">External emergency-contact integration: Not configured</p>
+            {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+            {result && <p className="mt-2 text-sm font-medium">Emergency event recorded<br/>ID: {result.emergency_id}<br/>{result.message}</p>}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -79,15 +76,15 @@ export const EmergencyButton = ({ patientId }: { patientId: string }) => {
               disabled={isConfirming}
               className="gap-2"
             >
-              {isConfirming ? (
+              {result ? 'Done' : isConfirming ? (
                 <>
                   <span className="animate-spin">⏳</span>
-                  Calling...
+                  Recording...
                 </>
               ) : (
                 <>
                   <Phone className="w-4 h-4" />
-                  Call Emergency
+                  Record Emergency Alert
                 </>
               )}
             </Button>

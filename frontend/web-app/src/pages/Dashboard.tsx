@@ -116,6 +116,7 @@ export const Dashboard = () => {
     );
   }
   if (!patient) return <div className="p-8 text-destructive">Unable to load patient data.</div>;
+  if (!currentReading && !isLoadingHistory && !isHistoryError) return <div className="min-h-screen bg-background p-6"><div className="rounded-lg border bg-card p-4 flex flex-wrap gap-3"><Badge variant={overallConnected ? 'default' : 'secondary'}>Dashboard Link: {overallConnected ? 'Online' : 'Offline'}</Badge><Badge variant="outline">Source: {sourceDeviceId}</Badge><Badge variant="secondary">IoT Device: {presenceLabel}</Badge><Badge variant="outline">Last seen: {formatAgeSeconds(lastSeenAge)}</Badge></div><div className="mt-6 rounded-lg border bg-card p-8"><h2 className="text-xl font-semibold">No readings yet</h2><p className="text-muted-foreground">Connect an ESP32 device or log a manual BP reading.</p><Button className="mt-4" onClick={() => setIsBpEntryOpen(true)}>Log BP</Button></div><BpEntryDialog patientId={PATIENT_ID} open={isBpEntryOpen} onOpenChange={setIsBpEntryOpen} /></div>;
 
   const chartData = readings.map((r) => ({
     timestamp: new Date(r.timestamp).toLocaleTimeString(),
