@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     
     # ML Model Paths
     MODEL_VERSION: str = "v1.0.2"  # Must match scripts/train_model.py MODEL_VERSION

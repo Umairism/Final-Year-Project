@@ -3,7 +3,11 @@
 from typing import Literal, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from api.models.database import get_db, Patient
+from api.services.patient_assistant import build_patient_context, build_prompt
+import api.services.gemini_service as gemini_service
 from pydantic import BaseModel, Field
 
 from api.config import get_settings
@@ -24,10 +28,16 @@ class ChatResponse(BaseModel):
     model: str
     content: str
 
+class PatientAssistantRequest(BaseModel):
+    patient_id: str
+    message: str = Field(..., min_length=1, max_length=2000)
+    conversation: list[dict] = Field(default_factory=list, max_length=12)
+
 
 @router.get("/providers")
 async def ai_providers_status():
     """Get availability of configured AI providers."""
+    settings = get_settings()
     return {
         "openai": {
             "configured": bool(settings.OPENAI_API_KEY),
@@ -119,3 +129,15 @@ async def ai_chat(payload: ChatRequest):
         model=settings.GEMINI_MODEL,
         content=content,
     )
+
+@router.post('/patient-assistant')
+async def patient_assistant(payload: PatientAssistantRequest, db: Session = Depends(get_db)):
+    patient=db.query(Patient).filter(Patient.id==payload.patient_id).first()
+    if not patient: raise HTTPException(404, detail={'error':'patient_not_found','message':'Patient not found'})
+    context=build_patient_context(db, patient)
+    if not context: raise HTTPException(409, detail={'error':'no_vitals','message':'No vital readings are available.'})
+    try:
+        answer=await gemini_service.generate_text('You are a concise HealSense patient assistant.', build_prompt(context,payload.message,payload.conversation))
+    except gemini_service.GeminiNotConfiguredError: raise HTTPException(503, detail={'error':'gemini_not_configured','message':'Gemini is not configured on the backend.'})
+    except gemini_service.GeminiUpstreamError: raise HTTPException(502, detail={'error':'gemini_upstream_error','message':'Gemini upstream request failed.'})
+    return {'answer':answer,'patient_id':payload.patient_id,'data_as_of':context['data_as_of'],'data_freshness_seconds':context['data_freshness_seconds'],'latest_status':str(context['latest']['status']),'is_simulated_data':context['is_simulated_data'],'model':get_settings().GEMINI_MODEL,'disclaimer':'Decision-support information only. This is not a diagnosis or a replacement for clinical judgement or emergency care.'}
