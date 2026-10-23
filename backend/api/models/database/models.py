@@ -88,6 +88,7 @@ class VitalSigns(Base):
     # Blood pressure source tracking & offline recovery metadata (NEW)
     bp_source = Column(SQLEnum(BpSource), default=BpSource.NONE, nullable=False)
     delayed_sync = Column(Boolean, default=False, nullable=False)
+    data_origin = Column(String(20), default="device", nullable=False, index=True)
     
     # Data source tracking
     data_source = Column(SQLEnum(DeviceType), default=DeviceType.IOT_HARDWARE)

@@ -351,6 +351,7 @@ async def create_vitals_from_phone(
         location_lng=location_lng,
         timestamp=datetime.utcnow(),
         status=health_status
+        ,data_origin="mobile_app"
     )
     
     db.add(db_vitals)

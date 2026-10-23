@@ -59,6 +59,7 @@ class VitalSigns(VitalSignsBase):
     prediction_confidence: Optional[float] = None
     full_probability_distribution: Optional[dict] = None
     model_version: Optional[str] = None
+    data_origin: str = "device"
     
     class Config:
         from_attributes = True
@@ -175,6 +176,10 @@ class DeviceStatus(BaseModel):
     battery_level: Optional[int] = Field(None, ge=0, le=100)
     signal_strength: Optional[int] = Field(None, ge=0, le=100)
     last_heartbeat: Optional[datetime] = None
+    presence_status: Optional[str] = None
+    is_online: Optional[bool] = None
+    last_seen_at: Optional[datetime] = None
+    last_seen_seconds_ago: Optional[int] = None
 
 
 # Emergency Models
@@ -207,6 +212,7 @@ class TelemetryPayload(BaseModel):
     bp_source: Optional[BpSource] = Field(BpSource.NONE, description="Blood pressure measurement acquisition origin")
     delayed_sync: bool = Field(False, description="Flag indicating offline sync upload from NVS buffer")
     timestamp: Optional[datetime] = Field(None, description="Hardware reading timestamp")
+    data_origin: Optional[str] = Field(None, pattern="^(device|simulated)$")
 
 
 class TelemetryResponse(BaseModel):

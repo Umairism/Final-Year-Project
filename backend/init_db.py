@@ -86,7 +86,7 @@ def seed_data():
             respiratory_rate=16.0,
             timestamp=datetime.utcnow(),
             status=HealthStatus.NORMAL,
-            risk_score=0.15
+            risk_score=0.15, data_origin="seed"
         )
         
         vital2 = VitalSigns(
@@ -101,7 +101,7 @@ def seed_data():
             respiratory_rate=18.0,
             timestamp=datetime.utcnow(),
             status=HealthStatus.WARNING,
-            risk_score=0.45
+            risk_score=0.45, data_origin="seed"
         )
         
         db.add_all([vital1, vital2])

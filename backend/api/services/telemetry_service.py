@@ -21,6 +21,10 @@ from api.models.schemas import (
 from api.services.prediction_service import prediction_service
 from api.services.fusion_engine import fusion_engine
 from api.services.realtime import realtime_manager
+from api.config import get_settings
+
+def resolve_data_origin(requested, allow_simulated):
+    return "simulated" if requested == "simulated" and allow_simulated else "device"
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +110,8 @@ class TelemetryIngestionService:
             )
 
         timestamp = payload.timestamp or datetime.utcnow()
+        device.connected = True
+        device.last_heartbeat = datetime.utcnow()
 
         # 3. Create & Persist VitalSigns DB Record
         db_bp_source = DBBpSource(payload.bp_source.value) if payload.bp_source else DBBpSource.NONE
@@ -122,7 +128,8 @@ class TelemetryIngestionService:
             bp_source=db_bp_source,
             delayed_sync=payload.delayed_sync,
             timestamp=timestamp,
-            status=HealthStatus.NORMAL
+            status=HealthStatus.NORMAL,
+            data_origin=resolve_data_origin(payload.data_origin, get_settings().ALLOW_SIMULATED_TELEMETRY)
         )
 
         db.add(db_vitals)

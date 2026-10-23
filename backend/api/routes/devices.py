@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from api.models.schemas import DeviceStatus
 from api.models.database import Device, DeviceType, get_db
 from api.services.realtime import realtime_manager
+from api.services.device_presence import compute_device_presence
+from api.config import get_settings
 
 router = APIRouter()
 
@@ -47,7 +49,7 @@ async def get_device_status(device_id: str, db: Session = Depends(get_db)):
             detail=f"Device {device_id} not found"
         )
     
-    return device
+    return {**{c.name: getattr(device, c.name) for c in Device.__table__.columns}, **compute_device_presence(device, online_window_seconds=get_settings().DEVICE_ONLINE_WINDOW_SECONDS)}
 
 
 @router.post("/{device_id}/connect")
@@ -217,7 +219,10 @@ async def get_patient_data_sources(patient_id: str, db: Session = Depends(get_db
         }
     
     # Find primary (currently connected) source
-    primary = next((d for d in devices if d.connected), None)
+    presence = {d.device_id: compute_device_presence(d, online_window_seconds=get_settings().DEVICE_ONLINE_WINDOW_SECONDS) for d in devices}
+    online = [d for d in devices if presence[d.device_id]["is_online"]]
+    enabled = [d for d in devices if d.connected]
+    primary = max(online or enabled, key=lambda d: d.last_heartbeat or datetime.min, default=None)
     
     return {
         "patient_id": patient_id,
@@ -227,6 +232,8 @@ async def get_patient_data_sources(patient_id: str, db: Session = Depends(get_db
                 "device_type": d.device_type.value,
                 "phone_model": d.phone_model,
                 "connected": d.connected,
+                "enabled": d.connected,
+                **presence[d.device_id],
                 "battery_level": d.battery_level,
                 "last_seen": d.last_heartbeat
             }

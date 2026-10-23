@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     HOST: str = "0.0.0.0"
     PORT: int = 5000
+    DEVICE_ONLINE_WINDOW_SECONDS: int = 45
+    ALLOW_SIMULATED_TELEMETRY: bool = False
     
     # Security
     SECRET_KEY: str = "b104b3038eb465125547dd2080b770baedfe37dc78d18822d20ad14c46895814"

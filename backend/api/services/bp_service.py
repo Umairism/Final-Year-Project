@@ -262,6 +262,7 @@ class BpEntryService:
                 activity_context="resting",
                 timestamp=measured_at,
                 status=DBHealthStatus.NORMAL,
+                data_origin="manual",
             )
             db.add(vital_row)
             db.commit()
