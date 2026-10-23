@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatFixed, formatInt } from '@/lib/format';
 
 interface HistoryTableProps {
   readings: VitalReading[];
@@ -47,12 +48,12 @@ export const HistoryTable = ({ readings }: HistoryTableProps) => {
 
     const rows = sortedReadings.map((r) => [
       format(r.timestamp, 'yyyy-MM-dd HH:mm:ss'),
-      r.heartRate,
-      r.spo2,
-      r.temperature,
+       formatInt(r.heartRate),
+       formatInt(r.spo2),
+       formatFixed(r.temperature, 1),
       r.systolic ?? '—',
       r.diastolic ?? '—',
-      r.respiratoryRate,
+       formatInt(r.respiratoryRate),
     ]);
 
     const csvContent = [
@@ -103,33 +104,33 @@ export const HistoryTable = ({ readings }: HistoryTableProps) => {
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('heartRate', reading.heartRate)} />
-                    <span>{reading.heartRate}</span>
+                    <span>{formatInt(reading.heartRate)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('spo2', reading.spo2)} />
-                    <span>{reading.spo2}</span>
+                    <span>{formatInt(reading.spo2)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('temperature', reading.temperature)} />
-                    <span>{reading.temperature}</span>
+                    <span>{formatFixed(reading.temperature, 1)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('systolic', reading.systolic)} />
                     <span>
-                      {reading.systolic == null || reading.diastolic == null ? '—' : `${reading.systolic}/${reading.diastolic}`}
+                      {reading.systolic == null || reading.diastolic == null ? '—' : `${formatInt(reading.systolic)}/${formatInt(reading.diastolic)}`}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <StatusCell status={getVitalStatus('respiratoryRate', reading.respiratoryRate)} />
-                    <span>{reading.respiratoryRate}</span>
+                    <span>{formatInt(reading.respiratoryRate)}</span>
                   </div>
                 </TableCell>
               </TableRow>

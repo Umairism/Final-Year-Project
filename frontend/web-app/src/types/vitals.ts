@@ -15,7 +15,11 @@ export interface VitalReading {
   predictionConfidence?: number | null;
   probabilityDistribution?: Record<string, number> | null;
   delayedSync?: boolean;
+  dataOrigin?: 'device' | 'mobile_app' | 'manual' | 'simulated' | 'seed' | string;
 }
+
+export interface PatientDataSource { deviceId: string; deviceType?: string; connected: boolean; enabled: boolean; presenceStatus?: string; isOnline: boolean; lastSeen: Date | null; lastSeenSecondsAgo: number | null; batteryLevel?: number | null; }
+export interface PatientSources { patientId: string; dataSources: PatientDataSource[]; primarySource: string | null; totalDevices: number; fetchedAt: number; }
 
 export interface VitalThresholds {
   heartRate: { min: number; max: number; warningMin: number; warningMax: number };

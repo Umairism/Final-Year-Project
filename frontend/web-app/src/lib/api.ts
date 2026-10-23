@@ -1,5 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
-import { VitalReading, PatientProfile, Alert, VitalStatus } from '@/types/vitals';
+import { VitalReading, PatientProfile, Alert, VitalStatus, PatientSources } from '@/types/vitals';
 import { ApiResponse, ApiError, VitalReadingRequest, EmergencyRequest } from '@/types/api';
 
 // API Client with error handling
@@ -88,6 +88,7 @@ export const toVitalReading = (payload: Record<string, unknown>): VitalReading =
   predictionConfidence: payload.prediction_confidence == null ? null : Number(payload.prediction_confidence),
   probabilityDistribution: payload.full_probability_distribution as Record<string, number> | null | undefined,
   delayedSync: Boolean(payload.delayed_sync ?? false),
+  dataOrigin: String(payload.data_origin ?? payload.dataOrigin ?? 'device'),
 });
 
 // Patient API
@@ -104,7 +105,7 @@ export const vitalsApi = {
     return toVitalReading(payload);
   },
 
-  getHistory: async (patientId: string, minutes: number = 60): Promise<VitalReading[]> => {
+  getHistory: async (patientId: string, minutes: number = 1440): Promise<VitalReading[]> => {
     const payload = await apiClient.get<Record<string, unknown>[]>(API_ENDPOINTS.vitalHistory(patientId, minutes));
     return payload.map(toVitalReading).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   },
@@ -147,15 +148,9 @@ export const deviceApi = {
     );
   },
 
-  getPatientSources: async (
-    patientId: string
-  ): Promise<{
-    patient_id: string;
-    data_sources: Array<{ device_id: string; connected: boolean }>;
-    primary_source: string | null;
-    total_devices: number;
-  }> => {
-    return apiClient.get(API_ENDPOINTS.patientDeviceSources(patientId));
+  getPatientSources: async (patientId: string): Promise<PatientSources> => {
+    const raw = await apiClient.get<any>(API_ENDPOINTS.patientDeviceSources(patientId));
+    return { patientId: raw.patient_id, primarySource: raw.primary_source, totalDevices: raw.total_devices ?? 0, fetchedAt: Date.now(), dataSources: (raw.data_sources ?? []).map((d:any) => ({ deviceId:d.device_id, deviceType:d.device_type, connected:Boolean(d.connected), enabled:Boolean(d.enabled ?? d.connected), presenceStatus:d.presence_status, isOnline:Boolean(d.is_online), lastSeen:d.last_seen ? new Date(d.last_seen) : null, lastSeenSecondsAgo:d.last_seen_seconds_ago ?? null, batteryLevel:d.battery_level ?? null })) };
   },
 
   connect: async (deviceId: string, patientId: string): Promise<void> => {

@@ -81,13 +81,13 @@ interface UseVitalsOptions {
 
 export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: UseVitalsOptions) => {
   const [readings, setReadings] = useState<VitalReading[]>(() => 
-    useMockData ? generateHistoricalData(60) : []
+    useMockData ? generateHistoricalData(60).map(r => ({...r, dataOrigin:'simulated'})) : []
   );
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isConnected, setIsConnected] = useState(useMockData);
 
   // Fetch historical vitals from API
-  const { data: historicalData } = useQuery<VitalReading[]>({
+  const { data: historicalData, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery<VitalReading[]>({
     queryKey: ['vitals-history', patientId],
     queryFn: () => vitalsApi.getHistory(patientId, 1440),
     enabled: !useMockData,
@@ -256,5 +256,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
     isRealtimeConnected,
     acknowledgeAlert,
     dismissAlert,
+    isLoadingHistory,
+    isHistoryError,
   };
 };

@@ -40,6 +40,7 @@ import { BpEntryDialog } from '@/components/vitals/BpEntryDialog';
 import { RiskGauge } from '@/components/risk/RiskGauge';
 import { GeminiExplanationCard } from '@/components/risk/GeminiExplanationCard';
 import { VitalTrendChart } from '@/components/vitals/VitalTrendChart';
+import { formatAgeSeconds } from '@/lib/format';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -55,6 +56,8 @@ export const Dashboard = () => {
     isRealtimeConnected,
     acknowledgeAlert,
     dismissAlert,
+    isLoadingHistory,
+    isHistoryError,
   } = useVitals({ 
     patientId: PATIENT_ID, 
     useMockData: API_CONFIG.useMockData 
@@ -76,6 +79,8 @@ export const Dashboard = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isBpEntryOpen, setIsBpEntryOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -97,20 +102,20 @@ export const Dashboard = () => {
     : (isRealtimeConnected ? 'WebSocket Live' : 'Polling Fallback');
 
   const fallbackActive = !API_CONFIG.useMockData && !isRealtimeConnected;
-  const sourceDeviceId = API_CONFIG.useMockData
-    ? `PHONE_${PATIENT_ID}`
-    : (sourceData?.primary_source || sourceData?.data_sources?.[0]?.device_id || 'ESP32_PATIENT_001');
-  const sourceConnected = API_CONFIG.useMockData
-    ? overallConnected
-    : Boolean(sourceData?.data_sources?.find((src) => src.device_id === sourceDeviceId)?.connected ?? true);
+  const selectedSource = sourceData?.dataSources.find((src) => src.deviceId === sourceData.primarySource) ?? sourceData?.dataSources[0];
+  const sourceDeviceId = selectedSource?.deviceId ?? 'No device registered';
+  const presenceLabel = selectedSource?.presenceStatus === 'online' ? 'Online' : selectedSource?.presenceStatus === 'stale' ? 'Stale' : selectedSource?.presenceStatus === 'never_seen' ? 'Never seen' : selectedSource?.presenceStatus === 'disabled' ? 'Disabled' : 'Unknown';
+  const lastSeenAge = selectedSource?.lastSeenSecondsAgo == null ? null : selectedSource.lastSeenSecondsAgo + Math.max(0, Math.floor((now - (sourceData?.fetchedAt ?? now))/1000));
+  const hasDemo = API_CONFIG.useMockData || readings.some(r => r.dataOrigin === 'simulated' || r.dataOrigin === 'seed');
 
-  if (!currentReading || isLoadingPatient || !patient) {
+  if (isLoadingPatient) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-pulse text-muted-foreground">Loading vitals...</div>
       </div>
     );
   }
+  if (!patient) return <div className="p-8 text-destructive">Unable to load patient data.</div>;
 
   const chartData = readings.map((r) => ({
     timestamp: new Date(r.timestamp).toLocaleTimeString(),
@@ -161,22 +166,25 @@ export const Dashboard = () => {
         <div className="rounded-lg border bg-card p-4">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={overallConnected ? 'default' : 'destructive'}>
-              Stream: {overallConnected ? 'Online' : 'Offline'}
+              Dashboard Link: {overallConnected ? 'Online' : 'Offline'}
             </Badge>
             <Badge variant={isRealtimeConnected ? 'default' : 'secondary'}>
-              Mode: {connectionMode}
+              Mode: {API_CONFIG.useMockData ? 'Mock Data' : connectionMode}
             </Badge>
             <Badge variant={fallbackActive ? 'secondary' : 'outline'}>
               Fallback: {fallbackActive ? 'Active' : 'Inactive'}
             </Badge>
-            <Badge variant={sourceConnected ? 'default' : 'secondary'}>
+            <Badge variant={selectedSource?.isOnline === true ? 'default' : 'secondary'}>
               Source: {sourceDeviceId}
             </Badge>
-            <Badge variant={sourceConnected ? 'outline' : 'destructive'}>
-              IoT Device: {sourceConnected ? 'Connected' : 'Disconnected'}
+            <Badge variant={selectedSource?.isOnline === true ? 'default' : 'secondary'}>
+              IoT Device: {presenceLabel}
             </Badge>
+            <Badge variant="outline">Last seen: {formatAgeSeconds(lastSeenAge)}</Badge>
+            {currentReading && <Badge variant="outline">Last reading: {currentReading.timestamp.toLocaleTimeString()} ({formatAgeSeconds(Math.floor((now-currentReading.timestamp.getTime())/1000))})</Badge>}
           </div>
         </div>
+        {hasDemo && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">DEMO DATA — simulated or seeded readings are shown. These values are not being presented as live patient telemetry.</div>}
 
         {/* Alert Banner */}
         <AlertBanner
