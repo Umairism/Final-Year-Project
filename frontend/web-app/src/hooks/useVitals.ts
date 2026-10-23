@@ -147,19 +147,18 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
 
   const currentReading = readings[readings.length - 1];
 
-  const {
-    isConnected: isRealtimeConnected,
-  } = useVitalsWebSocket(patientId, (event: any) => {
+  const handleVitalUpdate = useCallback((event: any) => {
     const payload = event?.payload;
     if (!payload) return;
-
-    const vitalPayload = payload?.vital ?? payload;
-    const reading = toVitalReading(vitalPayload);
+    const reading = toVitalReading(payload?.vital ?? payload);
     if (!reading.heartRate && !reading.spo2 && !reading.temperature) return;
-
     setReadings((prev) => [...prev, reading].slice(-60));
     checkForAlerts(reading);
-  });
+  }, [checkForAlerts]);
+
+  const {
+    isConnected: isRealtimeConnected,
+  } = useVitalsWebSocket(patientId, handleVitalUpdate);
 
   const acknowledgeAlert = useCallback(async (alertId: string) => {
     if (!useMockData) {
