@@ -141,7 +141,7 @@ const AlertItem = ({
         </div>
         <div>
           <p className="text-sm font-medium">
-            {vitalLabels[alert.vitalType]}: {alert.value}
+            {alert.message ?? `${vitalLabels[alert.vitalType]}: ${alert.value}`}
           </p>
           <p className="text-xs text-muted-foreground">
             {format(alert.timestamp, 'MMM dd, HH:mm:ss')}

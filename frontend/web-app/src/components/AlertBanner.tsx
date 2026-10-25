@@ -42,7 +42,7 @@ export const AlertBanner = ({ alerts, onAcknowledge, onDismiss }: AlertBannerPro
             </div>
             <div>
               <p className="font-medium text-destructive">
-                Critical: {vitalLabels[alert.vitalType]} at {alert.value}
+                {alert.message ?? `Critical: ${vitalLabels[alert.vitalType]} at ${alert.value}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 {formatDistanceToNow(alert.timestamp, { addSuffix: true })}
@@ -84,7 +84,7 @@ export const AlertBanner = ({ alerts, onAcknowledge, onDismiss }: AlertBannerPro
             </div>
             <div>
               <p className="font-medium text-warning">
-                Warning: {vitalLabels[alert.vitalType]} at {alert.value}
+                {alert.message ?? `Warning: ${vitalLabels[alert.vitalType]} at ${alert.value}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 {formatDistanceToNow(alert.timestamp, { addSuffix: true })}

@@ -53,10 +53,12 @@ export interface Alert {
   id: string;
   type: 'warning' | 'critical';
   vitalType: string;
-  value: number;
+  value: number | null;
   threshold: string;
   timestamp: Date;
   acknowledged: boolean;
+  dismissed?: boolean;
+  message?: string;
 }
 
 export const DEFAULT_THRESHOLDS: VitalThresholds = {

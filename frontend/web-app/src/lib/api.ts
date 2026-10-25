@@ -119,17 +119,44 @@ export const vitalsApi = {
 };
 
 // Alerts API
+export interface AcknowledgeAlertResponse {
+  alert_id: string;
+  acknowledged: boolean;
+  acknowledged_at: string;
+  message: string;
+}
+
+export interface DismissAlertResponse {
+  alert_id: string;
+  dismissed: boolean;
+  dismissed_at: string;
+  message: string;
+}
+
+export const toAlert = (payload: Record<string, unknown>): Alert => ({
+  id: String(payload.id),
+  type: payload.severity === 'critical' || payload.type === 'critical' ? 'critical' : 'warning',
+  vitalType: String(payload.vital_type ?? payload.vitalType ?? ''),
+  value: payload.value == null ? null : Number(payload.value),
+  threshold: String(payload.threshold ?? ''),
+  timestamp: new Date(String(payload.timestamp)),
+  acknowledged: Boolean(payload.acknowledged),
+  dismissed: Boolean(payload.dismissed),
+  message: typeof payload.message === 'string' ? payload.message : undefined,
+});
+
 export const alertsApi = {
   getAll: async (patientId: string): Promise<Alert[]> => {
-    return apiClient.get<Alert[]>(API_ENDPOINTS.alerts(patientId));
+    const payload = await apiClient.get<Record<string, unknown>[]>(API_ENDPOINTS.alerts(patientId));
+    return payload.map(toAlert);
   },
 
-  acknowledge: async (alertId: string): Promise<Alert> => {
-    return apiClient.post<Alert>(API_ENDPOINTS.acknowledgeAlert(alertId), {});
+  acknowledge: async (alertId: string): Promise<AcknowledgeAlertResponse> => {
+    return apiClient.post<AcknowledgeAlertResponse>(API_ENDPOINTS.acknowledgeAlert(alertId), {});
   },
 
-  dismiss: async (alertId: string): Promise<void> => {
-    return apiClient.delete<void>(API_ENDPOINTS.dismissAlert(alertId));
+  dismiss: async (alertId: string): Promise<DismissAlertResponse> => {
+    return apiClient.post<DismissAlertResponse>(API_ENDPOINTS.dismissAlert(alertId), {});
   },
 };
 

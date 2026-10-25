@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { vitalsApi, alertsApi, toVitalReading } from '@/lib/api';
 import { API_CONFIG } from '@/lib/config';
 import { VitalReading, VitalStatus, DEFAULT_THRESHOLDS, Alert } from '@/types/vitals';
 import { useVitalsWebSocket } from '@/hooks/useWebSocket';
+import { AlertActions, visibleAlerts } from '@/lib/alerts';
 
 const generateId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -85,6 +86,11 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   );
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isConnected, setIsConnected] = useState(useMockData);
+  const actionState = useRef<{ patientId: string; actions: AlertActions }>({ patientId, actions: new Map() });
+  if (actionState.current.patientId !== patientId) {
+    actionState.current = { patientId, actions: new Map() };
+  }
+  const confirmedActions = actionState.current.actions;
 
   // Fetch historical vitals from API
   const { data: historicalData, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery<VitalReading[]>({
@@ -113,9 +119,9 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   // Update alerts when API alerts are fetched
   useEffect(() => {
     if (apiAlerts && !useMockData) {
-      setAlerts(apiAlerts);
+      setAlerts(visibleAlerts(apiAlerts, confirmedActions));
     }
-  }, [apiAlerts, useMockData]);
+  }, [apiAlerts, useMockData, confirmedActions]);
 
   const checkForAlerts = useCallback((reading: VitalReading) => {
     if (!useMockData) return;
@@ -152,43 +158,60 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   const handleVitalUpdate = useCallback((event: any) => {
     const payload = event?.payload;
     if (!payload) return;
+    if (event.event_type?.startsWith('alert.')) {
+      if (useMockData) return;
+      if (payload.alert_id && (event.event_type === 'alert.acknowledged' || event.event_type === 'alert.dismissed')) {
+        const previous = confirmedActions.get(payload.alert_id);
+        confirmedActions.set(payload.alert_id, {
+          ...previous,
+          ...(payload.acknowledged === true ? { acknowledged: true } : {}),
+          ...(payload.dismissed === true ? { dismissed: true } : {}),
+        });
+        setAlerts(prev => visibleAlerts(prev, confirmedActions));
+      }
+      return;
+    }
     const reading = toVitalReading(payload?.vital ?? payload);
     if (!reading.heartRate && !reading.spo2 && !reading.temperature) return;
     setReadings((prev) => [...prev, reading].slice(-60));
     checkForAlerts(reading);
-  }, [checkForAlerts]);
+  }, [checkForAlerts, useMockData, confirmedActions]);
 
   const {
     isConnected: isRealtimeConnected,
   } = useVitalsWebSocket(patientId, handleVitalUpdate);
 
-  const acknowledgeAlert = useCallback(async (alertId: string) => {
+  const acknowledgeAlert = useCallback(async (alertId: string): Promise<boolean> => {
     if (!useMockData) {
       try {
-        await alertsApi.acknowledge(alertId);
+        const result = await alertsApi.acknowledge(alertId);
+        if (!result.acknowledged) return false;
       } catch (error) {
         console.error('Failed to acknowledge alert:', error);
+        return false;
       }
     }
     
-    setAlerts((prev) =>
-      prev.map((alert) =>
-        alert.id === alertId ? { ...alert, acknowledged: true } : alert
-      )
-    );
-  }, [useMockData]);
+    confirmedActions.set(alertId, { ...confirmedActions.get(alertId), acknowledged: true });
+    setAlerts(prev => visibleAlerts(prev, confirmedActions));
+    return true;
+  }, [useMockData, confirmedActions]);
 
-  const dismissAlert = useCallback(async (alertId: string) => {
+  const dismissAlert = useCallback(async (alertId: string): Promise<boolean> => {
     if (!useMockData) {
       try {
-        await alertsApi.dismiss(alertId);
+        const result = await alertsApi.dismiss(alertId);
+        if (!result.dismissed) return false;
       } catch (error) {
         console.error('Failed to dismiss alert:', error);
+        return false;
       }
     }
     
-    setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
-  }, [useMockData]);
+    confirmedActions.set(alertId, { ...confirmedActions.get(alertId), dismissed: true });
+    setAlerts(prev => visibleAlerts(prev, confirmedActions));
+    return true;
+  }, [useMockData, confirmedActions]);
 
   // Real-time updates via polling (for mock data)
   useEffect(() => {
