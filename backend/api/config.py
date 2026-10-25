@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     GEMINI_WRITE_TIMEOUT_SECONDS: float = 30
     GEMINI_POOL_TIMEOUT_SECONDS: float = 10
     GEMINI_THINKING_LEVEL: str = "low"
+    GEMINI_MIN_OUTPUT_TOKENS: int = 256
     
     # ML Model Paths
     MODEL_VERSION: str = "v1.0.2"  # Must match scripts/train_model.py MODEL_VERSION

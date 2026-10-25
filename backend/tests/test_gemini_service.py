@@ -19,7 +19,7 @@ def mock_google(monkeypatch):
         GEMINI_API_KEY='TEST_KEY_SENTINEL', GEMINI_MODEL='test-model',
         GEMINI_CONNECT_TIMEOUT_SECONDS=7, GEMINI_READ_TIMEOUT_SECONDS=83,
         GEMINI_WRITE_TIMEOUT_SECONDS=23, GEMINI_POOL_TIMEOUT_SECONDS=9,
-        GEMINI_THINKING_LEVEL='low'))
+        GEMINI_THINKING_LEVEL='low', GEMINI_MIN_OUTPUT_TOKENS=256))
     original_client = httpx.AsyncClient
 
     def install(handler):
@@ -39,7 +39,7 @@ def test_success_preserves_body_and_header(mock_google):
         assert request.extensions['timeout'] == {'connect': 7, 'read': 83, 'write': 23, 'pool': 9}
         assert json.loads(request.content) == {
             'model': 'test-model', 'system_instruction': 'system', 'input': 'prompt',
-            'generation_config': {'max_output_tokens': 16, 'thinking_level': 'low',
+            'generation_config': {'max_output_tokens': 256, 'thinking_level': 'low',
                                   'thinking_summaries': 'none'},
             'store': False, 'stream': False,
         }
@@ -257,3 +257,34 @@ def test_settings_defaults():
     assert defaults['GEMINI_WRITE_TIMEOUT_SECONDS'] == 30
     assert defaults['GEMINI_POOL_TIMEOUT_SECONDS'] == 10
     assert defaults['GEMINI_THINKING_LEVEL'] == 'low'
+    assert defaults['GEMINI_MIN_OUTPUT_TOKENS'] == 256
+
+
+@pytest.mark.parametrize('requested,effective', [(64, 256), (300, 300), (512, 512)])
+def test_minimum_output_budget(mock_google, requested, effective):
+    def handler(request):
+        assert json.loads(request.content)['generation_config']['max_output_tokens'] == effective
+        return httpx.Response(200, json={'output_text': 'OK'})
+
+    mock_google(handler)
+    assert asyncio.run(gemini_service.generate_text('system', 'prompt', max_output_tokens=requested)) == 'OK'
+
+
+def test_no_text_metadata_excludes_private_content(mock_google, caplog):
+    mock_google(lambda request: httpx.Response(200, json={
+        'status': 'completed',
+        'steps': [{'type': 'thought', 'content': [{'type': 'text', 'text': 'PRIVATE_PATIENT'}]},
+                  {'type': 'PRIVATE_PROMPT', 'content': [{'type': 'TEST_KEY_SENTINEL'}]}],
+        'usage': {'total_input_tokens': 20, 'total_output_tokens': 64, 'total_thought_tokens': 64,
+                  'PRIVATE_PATIENT': 123, 'total_tokens': 'TEST_KEY_SENTINEL'},
+    }))
+    with pytest.raises(gemini_service.GeminiUpstreamError):
+        asyncio.run(gemini_service.generate_text('PRIVATE_PROMPT', 'PRIVATE_PATIENT'))
+    records = [record for record in caplog.records if record.name == gemini_service.__name__]
+    assert len(records) == 1
+    metadata = json.loads(records[0].getMessage().split('metadata=', 1)[1])
+    assert metadata == {'interaction_status': 'completed', 'step_types': ['thought', 'other'],
+                        'content_types': ['text', 'other'],
+                        'usage': {'total_input_tokens': 20, 'total_output_tokens': 64, 'total_thought_tokens': 64}}
+    for secret in ('PRIVATE_PATIENT', 'PRIVATE_PROMPT', 'TEST_KEY_SENTINEL'):
+        assert secret not in caplog.text
