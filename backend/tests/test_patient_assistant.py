@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 from api.app import app
 from api.models.database import Base, get_db
-from api.models.database.models import Patient, Device, VitalSigns, Alert, HealthStatus, AlertSeverity
+from api.models.database.models import Patient, Device, VitalSigns, Alert, HealthStatus, AlertSeverity, BpSource
 from api.services.patient_assistant import build_patient_context
 from api.services import gemini_service
 from api.services import fusion_engine
@@ -52,3 +52,33 @@ def test_fusion_gemini_fallbacks(monkeypatch):
     monkeypatch.setattr(fusion_engine,'generate_text',missing); assert 'not configured' in asyncio.run(fusion_engine.fusion_engine.generate_explanation(p,result))
     async def upstream(*a,**k): raise gemini_service.GeminiUpstreamError()
     monkeypatch.setattr(fusion_engine,'generate_text',upstream); assert 'API error' in asyncio.run(fusion_engine.fusion_engine.generate_explanation(p,result))
+
+
+def test_context_and_response_use_enum_values(monkeypatch):
+    db, patient = seed()
+    try:
+        latest = db.query(VitalSigns).filter_by(id='V2').one()
+        latest.bp_source = BpSource.MANUAL_ENTRY
+        db.commit()
+        context = build_patient_context(db, patient)
+        assert context is not None
+        assert type(context['latest']['status']) is str
+        assert context['latest']['status'] == 'critical'
+        assert type(context['latest']['bp_source']) is str
+        assert context['latest']['bp_source'] == 'manual_entry'
+        assert context['rows'][-1]['status'] == 'critical'
+        assert context['rows'][-1]['bp_source'] == 'manual_entry'
+
+        async def generate(system, prompt, **kwargs):
+            assert 'HealthStatus.CRITICAL' not in prompt
+            assert 'BpSource.MANUAL_ENTRY' not in prompt
+            assert '"status": "critical"' in prompt
+            assert '"bp_source": "manual_entry"' in prompt
+            return 'Mocked response'
+
+        monkeypatch.setattr(gemini_service, 'generate_text', generate)
+        response = client.post('/api/v1/ai/patient-assistant', json={'patient_id': 'PA1', 'message': 'status'})
+        assert response.status_code == 200
+        assert response.json()['latest_status'] == 'critical'
+    finally:
+        db.close()

@@ -90,43 +90,19 @@ async def ai_chat(payload: ChatRequest):
             content=content,
         )
 
-    if not settings.GEMINI_API_KEY:
+    try:
+        content = await gemini_service.generate_text(
+            payload.system_prompt or '', payload.prompt,
+            max_output_tokens=payload.max_tokens,
+        )
+    except gemini_service.GeminiNotConfiguredError:
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured")
-
-    gemini_url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-    )
-
-    gemini_body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": f"{payload.system_prompt or ''}\n\nUser: {payload.prompt}",
-                    }
-                ]
-            }
-        ]
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(gemini_url, json=gemini_body)
-
-    if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Gemini error: {response.text}")
-
-    data = response.json()
-    content = (
-        data.get("candidates", [{}])[0]
-        .get("content", {})
-        .get("parts", [{}])[0]
-        .get("text", "")
-    )
+    except gemini_service.GeminiUpstreamError:
+        raise HTTPException(status_code=502, detail="Gemini upstream request failed.")
 
     return ChatResponse(
         provider="gemini",
-        model=settings.GEMINI_MODEL,
+        model=get_settings().GEMINI_MODEL,
         content=content,
     )
 
@@ -140,4 +116,4 @@ async def patient_assistant(payload: PatientAssistantRequest, db: Session = Depe
         answer=await gemini_service.generate_text('You are a concise HealSense patient assistant.', build_prompt(context,payload.message,payload.conversation))
     except gemini_service.GeminiNotConfiguredError: raise HTTPException(503, detail={'error':'gemini_not_configured','message':'Gemini is not configured on the backend.'})
     except gemini_service.GeminiUpstreamError: raise HTTPException(502, detail={'error':'gemini_upstream_error','message':'Gemini upstream request failed.'})
-    return {'answer':answer,'patient_id':payload.patient_id,'data_as_of':context['data_as_of'],'data_freshness_seconds':context['data_freshness_seconds'],'latest_status':str(context['latest']['status']),'is_simulated_data':context['is_simulated_data'],'model':get_settings().GEMINI_MODEL,'disclaimer':'Decision-support information only. This is not a diagnosis or a replacement for clinical judgement or emergency care.'}
+    return {'answer':answer,'patient_id':payload.patient_id,'data_as_of':context['data_as_of'],'data_freshness_seconds':context['data_freshness_seconds'],'latest_status':context['latest']['status'],'is_simulated_data':context['is_simulated_data'],'model':get_settings().GEMINI_MODEL,'disclaimer':'Decision-support information only. This is not a diagnosis or a replacement for clinical judgement or emergency care.'}
