@@ -19,11 +19,12 @@ const Profile = () => {
   const { user, updateProfile, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const patientId = import.meta.env.VITE_PATIENT_ID || 'P001';
+  const patientId = user?.patientId ?? '';
   const queryClient = useQueryClient();
   const { data: profile, isLoading, isError, refetch } = useQuery({
     queryKey: ['patient', patientId],
     queryFn: () => patientApi.getProfile(patientId),
+    enabled: Boolean(patientId),
     retry: 1,
   });
 

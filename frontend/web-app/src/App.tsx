@@ -11,6 +11,8 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import { Devices } from "./pages/Devices";
 import NotFound from "./pages/NotFound";
+import CheckEmail from "./pages/CheckEmail";
+import VerifyEmail from "./pages/VerifyEmail";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +80,8 @@ const AppRoutes = () => {
           </PublicRoute>
         }
       />
+      <Route path="/check-email" element={<CheckEmail />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route
         path="/dashboard"
         element={

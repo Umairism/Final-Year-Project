@@ -1,13 +1,14 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatAgeSeconds } from '@/lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 export const Devices = () => {
-  const patientId=import.meta.env.VITE_PATIENT_ID || 'P001'; const qc=useQueryClient();
-  const q=useQuery({queryKey:['patient-device-sources',patientId],queryFn:()=>deviceApi.getPatientSources(patientId),refetchInterval:5000});
+  const { user } = useAuth(); const patientId=user?.patientId ?? ''; const qc=useQueryClient();
+  const q=useQuery({queryKey:['patient-device-sources',patientId],queryFn:()=>deviceApi.getPatientSources(patientId),enabled:Boolean(patientId),refetchInterval:5000});
   const action=useMutation({mutationFn:({id,connected}:{id:string;connected:boolean})=>connected?deviceApi.disconnect(id):deviceApi.connect(id,patientId),onSuccess:()=>qc.invalidateQueries({queryKey:['patient-device-sources',patientId]})});
   if(q.isLoading) return <div className="p-6">Loading devices...</div>; if(q.isError) return <div className="p-6 text-destructive">Unable to load devices: {(q.error as Error).message}</div>;
   const devices=q.data?.dataSources ?? []; if(!devices.length) return <div className="p-6">No devices registered for {patientId}.</div>;

@@ -43,5 +43,6 @@ export const usePatient = (patientId: string, useMockData: boolean = false) => {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
+    enabled: Boolean(patientId),
   });
 };

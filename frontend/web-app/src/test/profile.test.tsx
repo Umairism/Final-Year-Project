@@ -9,7 +9,7 @@ import { usePatient } from '@/hooks/usePatient';
 
 const cache = vi.hoisted(() => ({ update: vi.fn(), toast: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({
-  user: { name: 'Unrelated local user' }, updateProfile: cache.update, logout: vi.fn(),
+   user: { name: 'Unrelated local user', patientId: 'P001' }, updateProfile: cache.update, logout: vi.fn(),
 }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: cache.toast }) }));
 

@@ -13,13 +13,16 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resent, setResent] = useState(false);
   
-  const { login } = useAuth();
+  const { login, resendVerification } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setUnverified(false); setResent(false);
     setIsLoading(true);
 
     const result = await login(email, password);
@@ -28,6 +31,7 @@ const Login = () => {
       navigate('/dashboard');
     } else {
       setError(result.error || 'Login failed');
+      setUnverified(result.code === 'email_not_verified');
     }
     
     setIsLoading(false);
@@ -52,6 +56,7 @@ const Login = () => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            {unverified && <div className="rounded border p-3 text-sm"><p>Email verification is required.</p><Button type="button" variant="link" className="px-0" onClick={async()=>{const r=await resendVerification(email);setResent(r.success);if(!r.success)setError(r.error||'Unable to resend verification');}}>Resend verification email</Button>{resent&&<p className="text-green-700">If an unverified account exists for this email, a new verification link has been sent.</p>}</div>}
             
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -82,11 +87,11 @@ const Login = () => {
             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-sm">
               <p className="font-medium text-blue-900 dark:text-blue-100">Demo Account:</p>
               <p className="text-blue-700 dark:text-blue-300">Email: umair@healsense.com</p>
-              <p className="text-blue-700 dark:text-blue-300">Password: password123</p>
             </div>
           </CardContent>
           
           <CardFooter className="flex flex-col space-y-4">
+            <Button type="button" variant="outline" className="w-full" onClick={()=>{setEmail('umair@healsense.com');setPassword('password123');}}>Use demo account</Button>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>

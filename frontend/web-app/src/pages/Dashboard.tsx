@@ -48,7 +48,7 @@ export const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const PATIENT_ID = import.meta.env.VITE_PATIENT_ID || 'P001';
+  const PATIENT_ID = user?.patientId ?? '';
 
   const {
     currentReading,
@@ -68,8 +68,8 @@ export const Dashboard = () => {
   const { data: sourceData } = useQuery({
     queryKey: ['patient-device-sources', PATIENT_ID],
     queryFn: () => deviceApi.getPatientSources(PATIENT_ID),
-    enabled: !API_CONFIG.useMockData,
     refetchInterval: 10000,
+    enabled: Boolean(PATIENT_ID) && !API_CONFIG.useMockData,
   });
 
   const { data: patient, isLoading: isLoadingPatient } = usePatient(

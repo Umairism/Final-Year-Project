@@ -3,11 +3,12 @@ export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1',
   wsUrl: import.meta.env.VITE_WS_URL || 'ws://localhost:5000',
   pollingInterval: Number(import.meta.env.VITE_POLLING_INTERVAL) || 5000,
-  useMockData: import.meta.env.VITE_USE_MOCK_DATA !== 'false', // Default to true
+  useMockData: import.meta.env.VITE_USE_MOCK_DATA === 'true',
 };
 
 // API Endpoints
 export const API_ENDPOINTS = {
+  authRegister: '/auth/register', authLogin: '/auth/login', authVerifyEmail: '/auth/verify-email', authResendVerification: '/auth/resend-verification', authMe: '/auth/me',
   // Patient endpoints
   patient: (id: string) => `/patients/${id}`,
   patientProfile: (id: string) => `/patients/${id}/profile`,

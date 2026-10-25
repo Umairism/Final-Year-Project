@@ -96,7 +96,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   const { data: historicalData, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery<VitalReading[]>({
     queryKey: ['vitals-history', patientId],
     queryFn: () => vitalsApi.getHistory(patientId, 1440),
-    enabled: !useMockData,
+    enabled: !useMockData && Boolean(patientId),
     refetchInterval: 60000, // Refetch every minute
   });
 
@@ -104,7 +104,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   const { data: apiAlerts } = useQuery<Alert[]>({
     queryKey: ['alerts', patientId],
     queryFn: () => alertsApi.getAll(patientId),
-    enabled: !useMockData,
+    enabled: !useMockData && Boolean(patientId),
     refetchInterval: 10000, // Refetch every 10 seconds
   });
 
@@ -179,7 +179,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
 
   const {
     isConnected: isRealtimeConnected,
-  } = useVitalsWebSocket(patientId, handleVitalUpdate);
+  } = useVitalsWebSocket(patientId, handleVitalUpdate, Boolean(patientId));
 
   const acknowledgeAlert = useCallback(async (alertId: string): Promise<boolean> => {
     if (!useMockData) {

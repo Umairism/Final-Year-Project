@@ -16,6 +16,7 @@ const Signup = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [bloodType, setBloodType] = useState('');
+  const [gender, setGender] = useState('Unspecified');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -32,8 +33,8 @@ const Signup = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('Password must be at least 8 characters and contain a letter and a digit');
       return;
     }
 
@@ -55,10 +56,10 @@ const Signup = () => {
 
     setIsLoading(true);
 
-    const result = await signup(email, password, name, ageNum, bloodType);
+    const result = await signup(email, password, name, ageNum, bloodType, gender);
     
     if (result.success) {
-      navigate('/dashboard');
+      navigate(`/check-email?email=${encodeURIComponent(email)}`);
     } else {
       setError(result.error || 'Signup failed');
     }
@@ -134,6 +135,7 @@ const Signup = () => {
                 </Select>
               </div>
             </div>
+            <div className="space-y-2"><Label htmlFor="gender">Gender</Label><Select value={gender} onValueChange={setGender} disabled={isLoading}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Female">Female</SelectItem><SelectItem value="Male">Male</SelectItem><SelectItem value="Other">Other</SelectItem><SelectItem value="Prefer not to say">Prefer not to say</SelectItem></SelectContent></Select></div>
             
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

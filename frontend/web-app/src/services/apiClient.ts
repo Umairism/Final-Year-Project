@@ -1,4 +1,5 @@
 import { API_CONFIG } from '@/lib/config';
+import { getAccessToken } from '@/lib/authToken';
 
 export class ApiClient {
   private baseUrl: string;
@@ -12,7 +13,7 @@ export class ApiClient {
     options?: RequestInit
   ): Promise<T> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getAccessToken();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...(options?.headers as Record<string, string>),

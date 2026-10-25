@@ -2,6 +2,7 @@ import { API_CONFIG, API_ENDPOINTS } from './config';
 import { VitalReading, PatientProfile, Alert, VitalStatus, PatientSources } from '@/types/vitals';
 import { ApiResponse, ApiError, VitalReadingRequest, EmergencyRequest } from '@/types/api';
 import { PatientProfileDto, PatientUpdateDto, toPatientProfile } from './profile';
+import { getAccessToken } from './authToken';
 
 // API Client with error handling
 class ApiClient {
@@ -16,11 +17,13 @@ class ApiClient {
     options?: RequestInit
   ): Promise<T> {
     try {
+      const token = getAccessToken();
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
@@ -100,6 +103,31 @@ export const patientApi = {
   updateProfile: async (patientId: string, payload: PatientUpdateDto): Promise<PatientProfile> => {
     return toPatientProfile(await apiClient.put<PatientProfileDto>(API_ENDPOINTS.patient(patientId), payload));
   },
+};
+
+export interface AuthUser { id: string; email: string; full_name: string; patient_id: string | null; is_email_verified: boolean; }
+export interface LoginResponse { access_token: string; token_type: 'bearer'; expires_in: number; user: AuthUser; }
+export interface RegisterResponse { user: AuthUser; verification_required: boolean; email_delivery: { mode: string; sent: boolean }; }
+export const authApi = {
+  register: (payload: { email: string; password: string; full_name: string; age: number; blood_type?: string; gender?: string }) => apiClient.post<RegisterResponse>(API_ENDPOINTS.authRegister, payload),
+  login: (payload: { email: string; password: string }) => apiClient.post<LoginResponse>(API_ENDPOINTS.authLogin, payload),
+  verifyEmail: (token: string) => apiClient.post<{ verified: boolean; email: string }>(API_ENDPOINTS.authVerifyEmail, { token }),
+  resendVerification: (email: string) => apiClient.post<{ message: string }>(API_ENDPOINTS.authResendVerification, { email }),
+  me: () => apiClient.get<AuthUser>(API_ENDPOINTS.authMe),
+};
+
+export const getAuthErrorMessage = (error: unknown): string => {
+  const e = error as { status?: number; detail?: unknown };
+  const d = typeof e?.detail === 'object' && e.detail ? e.detail as { error?: string } : undefined;
+  const code = d?.error;
+  if (code === 'email_not_verified') return 'Please verify your email before signing in.';
+  if (code === 'invalid_credentials') return 'Invalid email or password.';
+  if (code === 'email_already_registered') return 'An account with this email already exists. Try logging in or resend verification.';
+  if (code === 'email_delivery_failed') return 'Account created, but the verification email could not be sent. Use Resend.';
+  if (code === 'auth_not_configured') return 'Authentication is not configured on the server.';
+  if (code === 'invalid_or_expired_token') return 'This verification link is invalid or has expired.';
+  if (e?.status === 422) return 'Please check the highlighted fields and try again.';
+  return e?.status == null ? 'Cannot reach the HealSense backend.' : 'Authentication request failed.';
 };
 
 export interface AiProvidersResponse { openai: { configured: boolean; model: string }; gemini: { configured: boolean; model: string }; }

@@ -26,6 +26,6 @@ export function useWebSocket<T>({ topic, onMessage, onError, onConnect, onDiscon
   return { isConnected, send, disconnect, reconnect: connect };
 }
 
-export function useVitalsWebSocket(patientId: string, onVitalUpdate: (vital: any) => void) { return useWebSocket({ topic: WS_TOPICS.vitals(patientId), onMessage: onVitalUpdate, enabled: !API_CONFIG.useMockData }); }
-export function useAlertsWebSocket(patientId: string, onAlertUpdate: (alert: any) => void) { return useWebSocket({ topic: WS_TOPICS.alerts(patientId), onMessage: onAlertUpdate, enabled: !API_CONFIG.useMockData }); }
+export function useVitalsWebSocket(patientId: string, onVitalUpdate: (vital: any) => void, hasPatient = true) { return useWebSocket({ topic: WS_TOPICS.vitals(patientId), onMessage: onVitalUpdate, enabled: !API_CONFIG.useMockData && hasPatient }); }
+export function useAlertsWebSocket(patientId: string, onAlertUpdate: (alert: any) => void) { return useWebSocket({ topic: WS_TOPICS.alerts(patientId), onMessage: onAlertUpdate, enabled: !API_CONFIG.useMockData && Boolean(patientId) }); }
 export function useDeviceWebSocket(deviceId: string, onDeviceUpdate: (status: any) => void) { return useWebSocket({ topic: WS_TOPICS.device(deviceId), onMessage: onDeviceUpdate, enabled: !API_CONFIG.useMockData }); }
