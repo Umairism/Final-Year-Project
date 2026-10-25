@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from api.models.database import EmailVerificationToken, Patient, User, get_db
 from api.models.schemas import LoginRequest, RegisterRequest, ResendVerificationRequest, VerifyEmailRequest
 from api.services.auth_service import (create_access_token, decode_access_token, ensure_demo_user, hash_password,
-    new_verification_token, send_verification_email, token_hash, validate_password, verify_password)
+    new_verification_token, send_verification_email, token_hash, validate_password, verify_password, _secret_or_503)
 
 router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
@@ -25,6 +25,7 @@ def safe_user(user: User):
 
 @router.post("/register", status_code=201)
 async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    _secret_or_503()
     try: validate_password(payload.password)
     except ValueError as exc: raise HTTPException(422, detail=str(exc))
     email = str(payload.email).lower()
