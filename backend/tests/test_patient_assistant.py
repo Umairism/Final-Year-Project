@@ -18,7 +18,8 @@ from api.services.patient_assistant import ASSISTANT_SYSTEM_PROMPT, build_patien
 
 LATEST = datetime(2026, 10, 20, 12)
 NOW = LATEST + timedelta(days=3)
-PRIVATE = ('SecretFirst', 'SecretLast', 'secret@example.com', 'PRIVATE_PHONE')
+PRIVATE = ('SecretFirst', 'SecretLast', 'secret@example.com', 'PRIVATE_PHONE',
+           'CONTACT_NAME_SENTINEL', 'CONTACT_PHONE_SENTINEL', 'CONTACT_RELATION_SENTINEL')
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ def seed(db, with_vitals=True):
     patient = Patient(id='PA1', first_name=PRIVATE[0], last_name=PRIVATE[1],
                       email=PRIVATE[2], phone=PRIVATE[3], age=45, gender='female',
                       blood_type='A+', diabetes='unknown', smoking_status='unknown',
-                      medications=['example medication'], past_conditions=['example condition'])
+                      medications=['example medication'], past_conditions=['example condition'],
+                      emergency_contacts=[{'name': PRIVATE[4], 'phone': PRIVATE[5], 'relation': PRIVATE[6], 'type': kind}
+                                          for kind in ('doctor', 'family')])
     db.add(patient)
     db.add(Device(device_id='D1', patient_id='PA1', connected=True,
                   last_heartbeat=LATEST, battery_level=80))
@@ -97,6 +100,7 @@ def test_context_privacy_and_latest(db):
     assert context['alerts'][0]['severity'] == 'critical'
     assert context['devices'][0]['presence_status'] == 'stale'
     assert context['devices'][0]['last_seen_seconds_ago'] == 259200
+    assert context['emergency_support'] == {'configured': True, 'contact_count': 2, 'contact_types': ['doctor', 'family']}
 
 
 def test_missing_patient(db):
@@ -263,7 +267,8 @@ def test_mocked_api_success_and_captured_prompts(db, monkeypatch):
     prompt = captured['user']
     assert_private_absent(prompt + captured['system'])
     for value in ('121', '185', '120', '"trends"', '"average": 110.33', 'active alert 0',
-                  'simulated', 'What changed?', '"is_stale": true'):
+                  'simulated', 'What changed?', '"is_stale": true', 'example medication',
+                  'example condition', '"contact_count": 2', '"contact_types": ["doctor", "family"]'):
         assert value in prompt
     for i in range(12):
         assert (f'TURN_{i:02}_MARKER' in prompt) == (i >= 6)
@@ -330,3 +335,23 @@ def test_one_row_and_other_patient_isolation(db):
     assert context['trends']['24h']['heart_rate']['delta_last_minus_first'] == 0
     assert context['origin_counts'] == {'seed': 1}
     assert context['is_simulated_data'] is True
+
+
+@pytest.mark.parametrize('recorded', [False, True])
+def test_profile_completeness_and_support(db, recorded):
+    patient = seed(db)
+    patient.medications = ['Metformin'] if recorded else []
+    patient.past_conditions = ['Type 2 diabetes'] if recorded else []
+    patient.blood_type = 'A+' if recorded else ''
+    patient.diabetes = 'false' if recorded else 'unknown'
+    patient.smoking_status = 'non_smoker' if recorded else 'unknown'
+    patient.emergency_contacts = patient.emergency_contacts if recorded else []
+    db.commit()
+    context = build_patient_context(db, patient, NOW)
+    assert all(value is recorded for value in context['profile_completeness'].values())
+    assert context['emergency_support']['configured'] is recorded
+    assert context['emergency_support']['contact_count'] == (2 if recorded else 0)
+    assert 'not recorded' in ASSISTANT_SYSTEM_PROMPT
+    assert 'pharmacist' in ASSISTANT_SYSTEM_PROMPT
+    assert 'changing a\nmedication or dose' in ASSISTANT_SYSTEM_PROMPT
+    assert_private_absent(build_user_prompt(context, 'question', []))

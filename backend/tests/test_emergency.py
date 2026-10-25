@@ -4,8 +4,9 @@ from api.models.database import get_db
 from api.models.database.models import Base, Patient, Emergency
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 import pytest
-engine=create_engine('sqlite:///./test_emergency.db',connect_args={'check_same_thread':False}); Session=sessionmaker(bind=engine)
+engine=create_engine('sqlite://',connect_args={'check_same_thread':False},poolclass=StaticPool); Session=sessionmaker(bind=engine)
 def override():
     db=Session()
     try: yield db

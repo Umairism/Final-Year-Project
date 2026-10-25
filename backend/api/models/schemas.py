@@ -1,8 +1,8 @@
 """
 Pydantic schemas for API request/response models
 """
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator, field_validator, BeforeValidator, StringConstraints
+from typing import Optional, List, Literal, Annotated
 from datetime import datetime
 from enum import Enum
 
@@ -66,6 +66,29 @@ class VitalSigns(VitalSignsBase):
 
 
 # Patient Models
+Diabetes = Literal['true', 'false', 'unknown']
+SmokingStatus = Literal['non_smoker', 'former_smoker', 'current_smoker', 'unknown']
+
+
+def normalize_clinical_items(value):
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError('Expected a list of text items')
+    return [item.strip() for item in value if item.strip()]
+
+
+ClinicalItems = Annotated[
+    list[Annotated[str, StringConstraints(max_length=100)]],
+    BeforeValidator(normalize_clinical_items), Field(max_length=20),
+]
+
+
+class EmergencyContact(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    phone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32)]
+    relation: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    type: Literal['doctor', 'family', 'other']
+
+
 class PatientBase(BaseModel):
     """Base patient model"""
     first_name: str
@@ -73,10 +96,11 @@ class PatientBase(BaseModel):
     age: int = Field(..., ge=0, le=150)
     gender: str
     blood_type: Optional[str] = None
-    diabetes: str = Field("unknown", description="true, false, or unknown")
-    smoking_status: str = Field("unknown", description="non_smoker, former_smoker, current_smoker, or unknown")
-    medications: List[str] = Field(default_factory=list)
-    past_conditions: List[str] = Field(default_factory=list)
+    diabetes: Diabetes = 'unknown'
+    smoking_status: SmokingStatus = 'unknown'
+    medications: ClinicalItems = Field(default_factory=list)
+    past_conditions: ClinicalItems = Field(default_factory=list)
+    emergency_contacts: list[EmergencyContact] = Field(default_factory=list, max_length=5)
 
 
 class PatientCreate(PatientBase):
@@ -89,15 +113,23 @@ class PatientUpdate(BaseModel):
     """Model for updating patient"""
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    age: Optional[int] = None
+    age: Optional[int] = Field(None, ge=0, le=150)
     gender: Optional[str] = None
     blood_type: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    diabetes: Optional[str] = None
-    smoking_status: Optional[str] = None
-    medications: Optional[List[str]] = None
-    past_conditions: Optional[List[str]] = None
+    diabetes: Optional[Diabetes] = None
+    smoking_status: Optional[SmokingStatus] = None
+    medications: Optional[ClinicalItems] = None
+    past_conditions: Optional[ClinicalItems] = None
+    emergency_contacts: Optional[list[EmergencyContact]] = Field(None, max_length=5)
+
+    @field_validator('age', 'diabetes', 'smoking_status', 'medications', 'past_conditions', 'emergency_contacts')
+    @classmethod
+    def reject_explicit_null(cls, value):
+        if value is None:
+            raise ValueError('Omit this field instead of supplying null')
+        return value
 
 
 class Patient(PatientBase):

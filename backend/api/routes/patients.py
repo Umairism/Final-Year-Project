@@ -83,6 +83,11 @@ async def get_patient_profile(patient_id: str, db: Session = Depends(get_db)):
         "age": patient.age,
         "gender": patient.gender,
         "blood_type": patient.blood_type,
+        "diabetes": patient.diabetes,
+        "smoking_status": patient.smoking_status,
+        "medications": patient.medications,
+        "past_conditions": patient.past_conditions,
+        "emergency_contacts": patient.emergency_contacts,
         "email": patient.email,
         "phone": patient.phone,
         "created_at": patient.created_at,
@@ -586,6 +591,11 @@ async def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
         blood_type=patient.blood_type,
         email=patient.email,
         phone=patient.phone,
+        diabetes=patient.diabetes,
+        smoking_status=patient.smoking_status,
+        medications=patient.medications,
+        past_conditions=patient.past_conditions,
+        emergency_contacts=[contact.model_dump() for contact in patient.emergency_contacts],
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
@@ -623,7 +633,7 @@ async def update_patient(
         )
     
     # Update fields
-    update_data = patient_update.dict(exclude_unset=True)
+    update_data = patient_update.model_dump(exclude_unset=True, mode='json')
     for field, value in update_data.items():
         setattr(patient, field, value)
     

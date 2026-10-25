@@ -59,6 +59,7 @@ class Patient(Base):
     smoking_status = Column(String, default="unknown") # "non_smoker", "former_smoker", "current_smoker", "unknown"
     medications = Column(JSON, default=list)
     past_conditions = Column(JSON, default=list)
+    emergency_contacts = Column(JSON, default=list, server_default='[]', nullable=False)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

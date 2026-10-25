@@ -16,6 +16,7 @@ engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Verify connections before using
     echo=settings.DEBUG,  # Log SQL queries in debug mode
+    hide_parameters=True,  # Never log profile/contact values in SQL parameters.
 )
 
 # Create session factory
