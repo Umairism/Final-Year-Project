@@ -58,8 +58,8 @@ def register():
 
 def test_register_verify_login_me_and_token_safety():
     response = register(); assert response.status_code == 201
-    body = response.json(); assert "password_hash" not in str(body) and "token" not in body
-    db = TestingSession(); user = db.query(User).one(); row = db.query(EmailVerificationToken).one(); assert user.password_hash != "Strong123"; assert row.token_hash != captured["token"]
+    body = response.json(); assert "password_hash" not in str(body) and "token" not in body and body["user"]["is_email_verified"] is False
+    db = TestingSession(); user = db.query(User).one(); row = db.query(EmailVerificationToken).one(); assert body["user"]["patient_id"] == user.patient_id and body["user"]["patient_id"].startswith("P_"); assert db.query(Patient).filter_by(id=user.patient_id).one(); assert user.password_hash != "Strong123"; from api.services.auth_service import verify_password; assert verify_password("Strong123", user.password_hash); assert row.token_hash != captured["token"]
     assert client.post("/api/v1/auth/login", json={"email": "test@example.com", "password": "Strong123"}).status_code == 403
     assert client.post("/api/v1/auth/verify-email", json={"token": "bad"}).status_code == 400
     assert client.post("/api/v1/auth/verify-email", json={"token": captured["token"]}).status_code == 200
