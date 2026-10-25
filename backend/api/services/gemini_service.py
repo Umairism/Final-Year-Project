@@ -23,7 +23,7 @@ class GeminiUpstreamError(Exception):
 
 def _safe_code(value, key):
     """Only bounded status identifiers, never free text or credential values."""
-    if (isinstance(value, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", value)
+    if (isinstance(value, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", value)
             and key not in value):
         return value
     return None
@@ -36,29 +36,77 @@ def _upstream_error(*, status_code=None, upstream_status=None, reason=None):
                                upstream_status=upstream_status, reason=reason)
 
 
+def _extract_text(data):
+    """Collect only final model text; never echo user inputs or thoughts."""
+    if not isinstance(data, dict):
+        return ""
+    output_text = data.get('output_text')
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text.strip()
+    steps = data.get('steps')
+    if not isinstance(steps, list):
+        return ""
+    texts = []
+    for step in steps:
+        if not isinstance(step, dict) or step.get('type') != 'model_output':
+            continue
+        content = step.get('content')
+        if not isinstance(content, list):
+            continue
+        for item in content:
+            if isinstance(item, dict) and item.get('type') == 'text':
+                text = item.get('text')
+                if isinstance(text, str):
+                    texts.append(text)
+    return ''.join(texts).strip()
+
+
 async def generate_text(system_prompt, user_prompt, *, max_output_tokens=512, temperature=0.2):
+    """Generate text without server-side storage using Interactions.
+
+    ``temperature`` is retained for caller compatibility but is not sent;
+    Interactions uses the configured ``thinking_level`` instead.
+    """
     settings = get_settings()
     key = settings.GEMINI_API_KEY
     if not key:
         raise GeminiNotConfiguredError()
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent'
+    url = 'https://generativelanguage.googleapis.com/v1beta/interactions'
     body = {
-        'system_instruction': {'parts': [{'text': system_prompt}]},
-        'contents': [{'role': 'user', 'parts': [{'text': user_prompt}]}],
-        'generationConfig': {'maxOutputTokens': max_output_tokens, 'temperature': temperature},
+        'model': settings.GEMINI_MODEL,
+        'input': user_prompt,
+        'generation_config': {
+            'max_output_tokens': max_output_tokens,
+            'thinking_level': settings.GEMINI_THINKING_LEVEL,
+            'thinking_summaries': 'none',
+        },
+        'store': False,
+        'stream': False,
     }
+    if system_prompt:
+        body['system_instruction'] = system_prompt
+    timeout = httpx.Timeout(
+        connect=settings.GEMINI_CONNECT_TIMEOUT_SECONDS,
+        read=settings.GEMINI_READ_TIMEOUT_SECONDS,
+        write=settings.GEMINI_WRITE_TIMEOUT_SECONDS,
+        pool=settings.GEMINI_POOL_TIMEOUT_SECONDS,
+    )
+    headers = {'x-goog-api-key': key, 'Content-Type': 'application/json',
+               'Api-Revision': '2026-05-20'}
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(url, json=body, headers={'x-goog-api-key': key})
-    except Exception as exc:
-        reason = "READ_TIMEOUT" if isinstance(exc, httpx.ReadTimeout) else "REQUEST_FAILED"
-        raise _upstream_error(reason=reason) from None
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, json=body, headers=headers)
+    except httpx.TimeoutException:
+        raise _upstream_error(reason="timeout") from None
+    except httpx.RequestError:
+        raise _upstream_error(reason="network_error") from None
     if response.status_code >= 400:
         upstream_status = reason = None
         try:
             error = response.json().get('error', {})
             if isinstance(error, dict):
-                upstream_status = _safe_code(error.get('status'), key)
+                upstream_status = (_safe_code(error.get('status'), key)
+                                   or _safe_code(error.get('code'), key))
                 details = error.get('details', [])
                 if isinstance(details, list):
                     reason = next((code for detail in details if isinstance(detail, dict)
@@ -68,9 +116,15 @@ async def generate_text(system_prompt, user_prompt, *, max_output_tokens=512, te
         raise _upstream_error(status_code=response.status_code,
                               upstream_status=upstream_status, reason=reason)
     try:
-        text = response.json()['candidates'][0]['content']['parts'][0]['text']
-        if not text:
-            raise ValueError("No text")
-    except Exception:
+        data = response.json()
+    except ValueError:
         raise _upstream_error(status_code=response.status_code, reason="NO_USABLE_TEXT") from None
+    if isinstance(data, dict):
+        status = data.get('status')
+        if isinstance(status, str) and status.lower() in {'failed', 'cancelled', 'canceled', 'expired'}:
+            raise _upstream_error(status_code=response.status_code,
+                                  upstream_status=status.lower(), reason="INTERACTION_FAILED")
+    text = _extract_text(data)
+    if not text:
+        raise _upstream_error(status_code=response.status_code, reason="NO_USABLE_TEXT")
     return text

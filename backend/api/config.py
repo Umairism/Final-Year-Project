@@ -69,7 +69,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_CONNECT_TIMEOUT_SECONDS: float = 10
+    GEMINI_READ_TIMEOUT_SECONDS: float = 90
+    GEMINI_WRITE_TIMEOUT_SECONDS: float = 30
+    GEMINI_POOL_TIMEOUT_SECONDS: float = 10
+    GEMINI_THINKING_LEVEL: str = "low"
     
     # ML Model Paths
     MODEL_VERSION: str = "v1.0.2"  # Must match scripts/train_model.py MODEL_VERSION
