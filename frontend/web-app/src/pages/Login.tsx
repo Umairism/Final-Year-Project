@@ -19,13 +19,13 @@ const Login = () => {
   const { login, resendVerification } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, credentials = { email, password }) => {
     e.preventDefault();
     setError('');
     setUnverified(false); setResent(false);
     setIsLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(credentials.email, credentials.password);
     
     if (result.success) {
       navigate('/dashboard');
@@ -91,7 +91,7 @@ const Login = () => {
           </CardContent>
           
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="button" variant="outline" className="w-full" onClick={()=>{setEmail('umair@healsense.com');setPassword('password123');}}>Use demo account</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={()=>{setEmail('umair@healsense.com');setPassword('password123'); void handleSubmit({ preventDefault: () => undefined } as React.FormEvent, { email: 'umair@healsense.com', password: 'password123' });}}>Use demo account</Button>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>

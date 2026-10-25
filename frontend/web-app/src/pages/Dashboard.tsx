@@ -43,6 +43,7 @@ import { VitalTrendChart } from '@/components/vitals/VitalTrendChart';
 import { formatAgeSeconds } from '@/lib/format';
 import { useFusionRisk } from '@/hooks/useFusionRisk';
 import { PatientAssistantPanel } from '@/components/ai/PatientAssistantPanel';
+import { getDashboardReadingsState } from '@/lib/dashboardReadingsState';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -60,6 +61,7 @@ export const Dashboard = () => {
     dismissAlert,
     isLoadingHistory,
     isHistoryError,
+    refetchHistory,
   } = useVitals({ 
     patientId: PATIENT_ID, 
     useMockData: API_CONFIG.useMockData 
@@ -118,8 +120,12 @@ export const Dashboard = () => {
       </div>
     );
   }
+  if (!PATIENT_ID) return <div className="flex items-center justify-center min-h-screen"><div className="animate-pulse text-muted-foreground">Loading account...</div></div>;
   if (!patient) return <div className="p-8 text-destructive">Unable to load patient data.</div>;
-  if (!currentReading && !isLoadingHistory && !isHistoryError) return <div className="min-h-screen bg-background p-6"><div className="rounded-lg border bg-card p-4 flex flex-wrap gap-3"><Badge variant={overallConnected ? 'default' : 'secondary'}>Dashboard Link: {overallConnected ? 'Online' : 'Offline'}</Badge><Badge variant="outline">Source: {sourceDeviceId}</Badge><Badge variant="secondary">IoT Device: {presenceLabel}</Badge><Badge variant="outline">Last seen: {formatAgeSeconds(lastSeenAge)}</Badge></div><div className="mt-6 rounded-lg border bg-card p-8"><h2 className="text-xl font-semibold">No readings yet</h2><p className="text-muted-foreground">Connect an ESP32 device or log a manual BP reading.</p><Button className="mt-4" onClick={() => setIsBpEntryOpen(true)}>Log BP</Button></div><BpEntryDialog patientId={PATIENT_ID} open={isBpEntryOpen} onOpenChange={setIsBpEntryOpen} /></div>;
+  const readingsState = getDashboardReadingsState(currentReading, isLoadingHistory, isHistoryError);
+  if (readingsState === 'loading') return <div className="flex items-center justify-center min-h-screen"><div className="animate-pulse text-muted-foreground">Loading readings...</div></div>;
+  if (readingsState === 'error') return <div className="flex items-center justify-center min-h-screen"><div className="rounded-lg border border-destructive/40 bg-card p-6 space-y-4"><h2 className="text-xl font-semibold">Unable to load readings</h2><Button onClick={() => refetchHistory()}>Retry</Button></div></div>;
+  if (readingsState === 'empty') return <div className="min-h-screen bg-background p-6"><div className="rounded-lg border bg-card p-4 flex flex-wrap gap-3"><Badge variant={overallConnected ? 'default' : 'secondary'}>Dashboard Link: {overallConnected ? 'Online' : 'Offline'}</Badge><Badge variant="outline">Source: {sourceDeviceId}</Badge><Badge variant="secondary">IoT Device: {presenceLabel}</Badge><Badge variant="outline">Last seen: {formatAgeSeconds(lastSeenAge)}</Badge></div><div className="mt-6 rounded-lg border bg-card p-8"><h2 className="text-xl font-semibold">No readings yet</h2><p className="text-muted-foreground">Connect an ESP32 device or log a manual BP reading.</p><Button className="mt-4" onClick={() => setIsBpEntryOpen(true)}>Log BP</Button></div><BpEntryDialog patientId={PATIENT_ID} open={isBpEntryOpen} onOpenChange={setIsBpEntryOpen} /></div>;
 
   const chartData = readings.map((r) => ({
     timestamp: new Date(r.timestamp).toLocaleTimeString(),

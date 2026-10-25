@@ -93,7 +93,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   const confirmedActions = actionState.current.actions;
 
   // Fetch historical vitals from API
-  const { data: historicalData, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery<VitalReading[]>({
+  const { data: historicalData, isLoading: isLoadingHistory, isError: isHistoryError, refetch: refetchHistory } = useQuery<VitalReading[]>({
     queryKey: ['vitals-history', patientId],
     queryFn: () => vitalsApi.getHistory(patientId, 1440),
     enabled: !useMockData && Boolean(patientId),
@@ -233,7 +233,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
 
   // Real-time updates via API polling (when backend is ready)
   useEffect(() => {
-    if (useMockData) return;
+    if (useMockData || !patientId) return;
 
     const interval = setInterval(async () => {
       if (isRealtimeConnected) {
@@ -281,5 +281,6 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
     dismissAlert,
     isLoadingHistory,
     isHistoryError,
+    refetchHistory,
   };
 };

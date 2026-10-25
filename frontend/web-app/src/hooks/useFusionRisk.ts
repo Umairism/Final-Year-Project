@@ -11,7 +11,7 @@ export const useFusionRisk = (patientId: string, reading?: VitalReading, enabled
   return useQuery({
     queryKey: ['fusion-risk', patientId, status, bucket, spo2Low, bpCrisis],
     queryFn: () => aiApi.getFusionRisk(patientId),
-    enabled: enabled && !API_CONFIG.useMockData && Boolean(reading), retry: false,
+    enabled: enabled && !API_CONFIG.useMockData && Boolean(patientId) && Boolean(reading), retry: false,
     refetchOnWindowFocus: false, refetchOnReconnect: false, staleTime: 5 * 60 * 1000,
   });
 };
