@@ -4,7 +4,7 @@ interface EmergencyContact {
   name: string;
   phone: string;
   relation: string;
-  type: 'doctor' | 'family';
+  type: 'doctor' | 'family' | 'other';
 }
 
 interface User {
@@ -17,6 +17,8 @@ interface User {
   medicalConditions: string[];
   currentMedications: string[];
   emergencyContacts: EmergencyContact[];
+  diabetes?: 'true' | 'false' | 'unknown';
+  smokingStatus?: 'non_smoker' | 'former_smoker' | 'current_smoker' | 'unknown';
 }
 
 interface AuthContextType {

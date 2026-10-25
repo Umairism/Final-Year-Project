@@ -34,18 +34,23 @@ export interface EmergencyContact {
   name: string;
   phone: string;
   relation: string;
-  type: 'doctor' | 'family';
+  type: 'doctor' | 'family' | 'other';
 }
 
 export interface PatientProfile {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
   age: number;
   gender: string;
   bloodType: string;
   avatar?: string;
   conditions: string[];
   medications: string[];
+  diabetes: 'true' | 'false' | 'unknown';
+  smokingStatus: 'non_smoker' | 'former_smoker' | 'current_smoker' | 'unknown';
   emergencyContacts: EmergencyContact[];
 }
 

@@ -6,6 +6,10 @@ import { PatientProfile } from '@/types/vitals';
 const MOCK_PATIENT: PatientProfile = {
   id: '1',
   name: 'Umair Hakeem',
+  firstName: 'Umair',
+  lastName: 'Hakeem',
+  diabetes: 'unknown',
+  smokingStatus: 'unknown',
   age: 24,
   gender: 'Male',
   bloodType: 'O+',

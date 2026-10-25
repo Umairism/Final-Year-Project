@@ -1,6 +1,7 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 import { VitalReading, PatientProfile, Alert, VitalStatus, PatientSources } from '@/types/vitals';
 import { ApiResponse, ApiError, VitalReadingRequest, EmergencyRequest } from '@/types/api';
+import { PatientProfileDto, PatientUpdateDto, toPatientProfile } from './profile';
 
 // API Client with error handling
 class ApiClient {
@@ -42,7 +43,7 @@ class ApiClient {
 
       return payload as T;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('API request failed'); // Validation errors can contain private profile input.
       throw error;
     }
   }
@@ -94,7 +95,10 @@ export const toVitalReading = (payload: Record<string, unknown>): VitalReading =
 // Patient API
 export const patientApi = {
   getProfile: async (patientId: string): Promise<PatientProfile> => {
-    return apiClient.get<PatientProfile>(API_ENDPOINTS.patientProfile(patientId));
+    return toPatientProfile(await apiClient.get<PatientProfileDto>(API_ENDPOINTS.patientProfile(patientId)));
+  },
+  updateProfile: async (patientId: string, payload: PatientUpdateDto): Promise<PatientProfile> => {
+    return toPatientProfile(await apiClient.put<PatientProfileDto>(API_ENDPOINTS.patient(patientId), payload));
   },
 };
 

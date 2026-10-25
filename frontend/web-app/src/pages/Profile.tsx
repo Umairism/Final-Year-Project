@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { patientApi } from '@/lib/api';
+import { buildProfilePayload, profileForm } from '@/lib/profile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,67 +19,52 @@ const Profile = () => {
   const { user, updateProfile, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const patientId = import.meta.env.VITE_PATIENT_ID || 'P001';
+  const queryClient = useQueryClient();
+  const { data: profile, isLoading, isError, refetch } = useQuery({
+    queryKey: ['patient', patientId],
+    queryFn: () => patientApi.getProfile(patientId),
+    retry: 1,
+  });
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    age: user?.age || 0,
-    gender: user?.gender || '',
-    bloodType: user?.bloodType || '',
-    medicalConditions: user?.medicalConditions?.join(', ') || '',
-    currentMedications: user?.currentMedications?.join(', ') || '',
-    doctorName: user?.emergencyContacts?.[0]?.name || '',
-    doctorPhone: user?.emergencyContacts?.[0]?.phone || '',
-    familyName: user?.emergencyContacts?.[1]?.name || '',
-    familyPhone: user?.emergencyContacts?.[1]?.phone || '',
-    familyRelation: user?.emergencyContacts?.[1]?.relation || '',
-  });
+  const [formData, setFormData] = useState(() => profileForm());
+  useEffect(() => {
+    if (profile && !isEditing) setFormData(profileForm(profile));
+  }, [profile, isEditing]);
 
   const handleSave = async () => {
+    if (!profile) return;
     setIsSaving(true);
-
-    const updates = {
-      name: formData.name,
-      age: formData.age,
-      gender: formData.gender,
-      bloodType: formData.bloodType,
-      medicalConditions: formData.medicalConditions.split(',').map(c => c.trim()).filter(Boolean),
-      currentMedications: formData.currentMedications.split(',').map(m => m.trim()).filter(Boolean),
-      emergencyContacts: [
-        {
-          name: formData.doctorName,
-          phone: formData.doctorPhone,
-          relation: 'Primary Care Physician',
-          type: 'doctor' as const,
-        },
-        {
-          name: formData.familyName,
-          phone: formData.familyPhone,
-          relation: formData.familyRelation,
-          type: 'family' as const,
-        },
-      ],
-    };
-
-    const result = await updateProfile(updates);
-
-    if (result.success) {
+    try {
+      const payload = buildProfilePayload(formData, profile);
+      const saved = await patientApi.updateProfile(patientId, payload);
+      // The server is authoritative. Never mutate caches before PUT succeeds.
+      queryClient.setQueryData(['patient', patientId], saved);
+      await queryClient.invalidateQueries({ queryKey: ['patient', patientId] });
+      const cacheResult = await updateProfile({
+        name: saved.name, age: saved.age, gender: saved.gender, bloodType: saved.bloodType,
+        medicalConditions: saved.conditions, currentMedications: saved.medications,
+        diabetes: saved.diabetes, smokingStatus: saved.smokingStatus,
+        emergencyContacts: saved.emergencyContacts,
+      });
+      setFormData(profileForm(saved));
+      setIsEditing(false);
       toast({
         title: 'Profile Updated',
-        description: 'Your profile has been successfully updated.',
+        description: cacheResult.success ? 'Profile saved to the backend.' : 'Profile saved to the backend; local display cache could not be updated.',
       });
-      setIsEditing(false);
-    } else {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: result.error || 'Failed to update profile',
+        description: error instanceof Error ? error.message : 'Failed to save profile to the backend.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
   const handleLogout = async () => {
@@ -84,9 +72,14 @@ const Profile = () => {
     navigate('/login');
   };
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
+  if (isLoading) return <p className="p-6">Loading patient profile…</p>;
+  if (isError || !profile) return (
+    <Alert variant="destructive" className="m-6">
+      <AlertDescription>Unable to load the backend patient profile. No local or mock profile is being shown.</AlertDescription>
+      <Button onClick={() => refetch()}>Retry</Button>
+    </Alert>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -109,27 +102,15 @@ const Profile = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-2xl">Profile Settings</CardTitle>
-                <CardDescription>Manage your personal and medical information</CardDescription>
+                <CardDescription>Demo profile for configured patient {patientId}. Future authentication will bind patients server-side.</CardDescription>
               </div>
               {!isEditing ? (
                 <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
               ) : (
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => {
+                  <Button variant="outline" disabled={isSaving} onClick={() => {
                     setIsEditing(false);
-                    setFormData({
-                      name: user?.name || '',
-                      age: user?.age || 0,
-                      gender: user?.gender || '',
-                      bloodType: user?.bloodType || '',
-                      medicalConditions: user?.medicalConditions?.join(', ') || '',
-                      currentMedications: user?.currentMedications?.join(', ') || '',
-                      doctorName: user?.emergencyContacts?.[0]?.name || '',
-                      doctorPhone: user?.emergencyContacts?.[0]?.phone || '',
-                      familyName: user?.emergencyContacts?.[1]?.name || '',
-                      familyPhone: user?.emergencyContacts?.[1]?.phone || '',
-                      familyRelation: user?.emergencyContacts?.[1]?.relation || '',
-                    });
+                    setFormData(profileForm(profile));
                   }}>
                     Cancel
                   </Button>
@@ -150,19 +131,24 @@ const Profile = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="firstName">First Name</Label>
                   <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    id="firstName"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     disabled={!isEditing}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input id="lastName" value={formData.lastName} disabled={!isEditing}
+                    onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
-                    value={user.email}
+                    value={profile.email ?? ''}
                     disabled
                     className="bg-gray-100 dark:bg-gray-800"
                   />
@@ -228,6 +214,34 @@ const Profile = () => {
                 <h3 className="text-lg font-semibold">Medical Information</h3>
               </div>
               <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Age, gender, conditions and medications are used de-identified by HealSense AI. Emergency contact details stay in HealSense for app emergency actions and are not sent to AI.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Diabetes</Label>
+                    <Select value={formData.diabetes} disabled={!isEditing}
+                      onValueChange={(diabetes: typeof formData.diabetes) => setFormData({ ...formData, diabetes })}>
+                      <SelectTrigger aria-label="Diabetes"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Smoking</Label>
+                    <Select value={formData.smokingStatus} disabled={!isEditing}
+                      onValueChange={(smokingStatus: typeof formData.smokingStatus) => setFormData({ ...formData, smokingStatus })}>
+                      <SelectTrigger aria-label="Smoking"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                        <SelectItem value="non_smoker">Non-smoker</SelectItem>
+                        <SelectItem value="former_smoker">Former smoker</SelectItem>
+                        <SelectItem value="current_smoker">Current smoker</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="conditions">Medical Conditions</Label>
                   <Input
@@ -237,9 +251,9 @@ const Profile = () => {
                     onChange={(e) => setFormData({ ...formData, medicalConditions: e.target.value })}
                     disabled={!isEditing}
                   />
-                  {!isEditing && user.medicalConditions.length > 0 && (
+                  {!isEditing && profile.conditions.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {user.medicalConditions.map((condition, index) => (
+                      {profile.conditions.map((condition, index) => (
                         <Badge key={index} variant="secondary">{condition}</Badge>
                       ))}
                     </div>
@@ -254,9 +268,9 @@ const Profile = () => {
                     onChange={(e) => setFormData({ ...formData, currentMedications: e.target.value })}
                     disabled={!isEditing}
                   />
-                  {!isEditing && user.currentMedications.length > 0 && (
+                  {!isEditing && profile.medications.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {user.currentMedications.map((medication, index) => (
+                      {profile.medications.map((medication, index) => (
                         <Badge key={index} variant="outline">
                           <Pill className="h-3 w-3 mr-1" />
                           {medication}
