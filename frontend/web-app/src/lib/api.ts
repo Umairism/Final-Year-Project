@@ -102,6 +102,30 @@ export const patientApi = {
   },
 };
 
+export interface AiProvidersResponse { openai: { configured: boolean; model: string }; gemini: { configured: boolean; model: string }; }
+export interface PatientAssistantConversationTurn { role: 'user' | 'assistant'; content: string; }
+export interface PatientAssistantRequest { patient_id: string; message: string; conversation: PatientAssistantConversationTurn[]; }
+export interface PatientAssistantResponse { patient_id: string; answer: string; model: string; data_as_of: string; data_freshness_seconds: number; latest_status: string; is_simulated_data: boolean; disclaimer: string; }
+export interface FusionRiskResponse { fused_decision?: { final_risk_level: string; confidence_score: number }; clinical_reasoning: string; }
+
+export const getAiErrorMessage = (error: unknown): string => {
+  const typed = error as { status?: number; detail?: unknown } | null;
+  const detail = typed?.detail as { error?: string } | string | undefined;
+  const code = typeof detail === 'object' && detail ? detail.error : undefined;
+  if (typed?.status === 404 || code === 'patient_not_found') return 'Patient profile was not found.';
+  if (typed?.status === 409 || code === 'no_vitals') return 'No readings are available for this patient yet.';
+  if (typed?.status === 503 || code === 'gemini_not_configured') return 'Gemini is not configured for this backend.';
+  if (typed?.status === 502 || code === 'gemini_upstream_error') return 'Gemini is temporarily unavailable. Please retry.';
+  if (typed?.status === 422) return 'Please enter a valid question.';
+  return 'Cannot reach the HealSense backend.';
+};
+
+export const aiApi = {
+  getProviders: () => apiClient.get<AiProvidersResponse>(API_ENDPOINTS.aiProviders),
+  askPatientAssistant: (request: PatientAssistantRequest) => apiClient.post<PatientAssistantResponse>(API_ENDPOINTS.patientAssistant, request),
+  getFusionRisk: (patientId: string) => apiClient.get<FusionRiskResponse>(API_ENDPOINTS.fusionRisk(patientId)),
+};
+
 // Vitals API
 export const vitalsApi = {
   getLatest: async (patientId: string): Promise<VitalReading> => {

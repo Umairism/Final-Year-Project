@@ -41,6 +41,8 @@ import { RiskGauge } from '@/components/risk/RiskGauge';
 import { GeminiExplanationCard } from '@/components/risk/GeminiExplanationCard';
 import { VitalTrendChart } from '@/components/vitals/VitalTrendChart';
 import { formatAgeSeconds } from '@/lib/format';
+import { useFusionRisk } from '@/hooks/useFusionRisk';
+import { PatientAssistantPanel } from '@/components/ai/PatientAssistantPanel';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -107,6 +109,7 @@ export const Dashboard = () => {
   const presenceLabel = selectedSource?.presenceStatus === 'online' ? 'Online' : selectedSource?.presenceStatus === 'stale' ? 'Stale' : selectedSource?.presenceStatus === 'never_seen' ? 'Never seen' : selectedSource?.presenceStatus === 'disabled' ? 'Disabled' : 'Unknown';
   const lastSeenAge = selectedSource?.lastSeenSecondsAgo == null ? null : selectedSource.lastSeenSecondsAgo + Math.max(0, Math.floor((now - (sourceData?.fetchedAt ?? now))/1000));
   const hasDemo = API_CONFIG.useMockData || readings.some(r => r.dataOrigin === 'simulated' || r.dataOrigin === 'seed');
+  const fusion = useFusionRisk(PATIENT_ID, currentReading, !API_CONFIG.useMockData);
 
   if (isLoadingPatient) {
     return (
@@ -207,11 +210,19 @@ export const Dashboard = () => {
             mlProbability={currentReading.predictionConfidence ?? null}
           />
           <GeminiExplanationCard
-            // TODO: wire GET /patients/{id}/fusion_risk clinical_reasoning after the Gemini fix.
-            explanation={null}
+            explanation={fusion.data?.clinical_reasoning}
             timestamp={currentReading.timestamp}
+            loading={fusion.isLoading}
+            error={fusion.error}
+            onRetry={() => fusion.refetch()}
+            level={fusion.data?.fused_decision?.final_risk_level}
+            confidence={fusion.data?.fused_decision?.confidence_score}
+            explainedAt={fusion.data ? currentReading.timestamp : undefined}
+            newerReading={false}
           />
         </div>
+
+        <PatientAssistantPanel patientId={PATIENT_ID} latestReadingTimestamp={currentReading.timestamp} />
 
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-3">

@@ -11,6 +11,9 @@ export const API_ENDPOINTS = {
   // Patient endpoints
   patient: (id: string) => `/patients/${id}`,
   patientProfile: (id: string) => `/patients/${id}/profile`,
+  aiProviders: '/ai/providers',
+  patientAssistant: '/ai/patient-assistant',
+  fusionRisk: (id: string) => `/patients/${id}/fusion_risk`,
   
   // Vitals endpoints
   vitals: (patientId: string) => `/patients/${patientId}/vitals`,
