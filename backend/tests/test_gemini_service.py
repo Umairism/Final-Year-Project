@@ -91,7 +91,7 @@ def test_http_api_response_remains_sanitized(mock_google, monkeypatch, status, u
     previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = lambda: database
     monkeypatch.setattr(ai, 'build_patient_context', lambda *args: {'available': True})
-    monkeypatch.setattr(ai, 'build_prompt', lambda *args: 'PRIVATE_PROMPT')
+    monkeypatch.setattr(ai, 'build_user_prompt', lambda *args: 'PRIVATE_PROMPT')
     try:
         response = TestClient(app).post('/api/v1/ai/patient-assistant',
                                        json={'patient_id': 'mock', 'message': 'test'})
