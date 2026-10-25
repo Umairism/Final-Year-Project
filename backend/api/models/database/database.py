@@ -74,3 +74,6 @@ def init_db():
     print("Creating database tables...")
     create_tables()
     print("✅ Database tables created successfully!")
+    from api.services.auth_service import ensure_demo_user
+    with get_db_context() as db:
+        ensure_demo_user(db)

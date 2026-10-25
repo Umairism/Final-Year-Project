@@ -68,6 +68,34 @@ class Patient(Base):
     vital_signs = relationship("VitalSigns", back_populates="patient", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="patient", cascade="all, delete-orphan")
     devices = relationship("Device", back_populates="patient")
+    user = relationship("User", back_populates="patient", uselist=False)
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(String, primary_key=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    patient_id = Column(String, ForeignKey("patients.id"), unique=True, nullable=True, index=True)
+    is_email_verified = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_login_at = Column(DateTime, nullable=True)
+    patient = relationship("Patient", back_populates="user")
+    verification_tokens = relationship("EmailVerificationToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class EmailVerificationToken(Base):
+    __tablename__ = "email_verification_tokens"
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    user = relationship("User", back_populates="verification_tokens")
 
 
 class VitalSigns(Base):

@@ -34,9 +34,12 @@ class Settings(BaseSettings):
     ALLOW_SIMULATED_TELEMETRY: bool = False
     
     # Security
-    SECRET_KEY: str = "b104b3038eb465125547dd2080b770baedfe37dc78d18822d20ad14c46895814"
+    SECRET_KEY: Optional[str] = None
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    FRONTEND_BASE_URL: str = "http://localhost:8080"
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
+    AUTH_ENFORCEMENT_ENABLED: bool = False
     ALLOWED_ORIGINS: str = "*"
     
     # Database

@@ -8,7 +8,9 @@ from api.models.database.models import (
     Emergency,
     HealthStatus,
     AlertSeverity,
-    DeviceType  # NEW: Phone sensor support
+    DeviceType,
+    User,
+    EmailVerificationToken,
 )
 from api.models.database.database import (
     engine,
@@ -29,6 +31,8 @@ __all__ = [
     "HealthStatus",
     "AlertSeverity",
     "DeviceType",  # NEW
+    "User",
+    "EmailVerificationToken",
     "engine",
     "SessionLocal",
     "get_db",

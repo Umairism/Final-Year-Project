@@ -12,6 +12,7 @@ import uuid
 
 from api.models.database.database import SessionLocal, init_db
 from api.models.database.models import Patient, VitalSigns, Alert, Device, HealthStatus, AlertSeverity
+from api.services.auth_service import ensure_demo_user
 
 
 def seed_data():
@@ -122,6 +123,8 @@ def seed_data():
         db.add(alert1)
         print("✅ Added 1 alert")
         
+        db.commit()
+        ensure_demo_user(db)
         db.commit()
         print("\n✅ Database seeded successfully!\n")
         

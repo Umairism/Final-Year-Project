@@ -1,10 +1,39 @@
 """
 Pydantic schemas for API request/response models
 """
-from pydantic import BaseModel, Field, model_validator, field_validator, BeforeValidator, StringConstraints
+from pydantic import BaseModel, Field, model_validator, field_validator, BeforeValidator, StringConstraints, EmailStr
 from typing import Optional, List, Literal, Annotated
 from datetime import datetime
 from enum import Enum
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str = Field(..., min_length=2, max_length=120)
+    age: int = Field(..., ge=1, le=150)
+    blood_type: Optional[str] = None
+    gender: str = "Unspecified"
+
+    @field_validator("blood_type")
+    @classmethod
+    def validate_blood_type(cls, value):
+        if value is not None and value.upper() not in {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"}:
+            raise ValueError("Invalid blood type")
+        return value.upper() if value else value
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
 
 
 class HealthStatus(str, Enum):

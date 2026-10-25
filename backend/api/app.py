@@ -17,6 +17,7 @@ from api.utils.logger import setup_logger
 from api.routes import patients, alerts, devices, telemetry
 from api.routes import realtime
 from api.routes import ai
+from api.routes import auth
 
 # Initialize settings
 settings = get_settings()
@@ -120,6 +121,7 @@ app.include_router(patients.router, prefix=f"{settings.API_V1_PREFIX}/patients",
 app.include_router(alerts.router, prefix=f"{settings.API_V1_PREFIX}/alerts", tags=["Alerts"])
 app.include_router(devices.router, prefix=f"{settings.API_V1_PREFIX}/devices", tags=["Devices"])
 app.include_router(ai.router, prefix=f"{settings.API_V1_PREFIX}/ai", tags=["AI"])
+app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
 app.include_router(realtime.router, tags=["Realtime"])
 
 # Health check endpoint
