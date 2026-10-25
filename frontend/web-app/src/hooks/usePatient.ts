@@ -33,7 +33,7 @@ const MOCK_PATIENT: PatientProfile = {
 
 export const usePatient = (patientId: string, useMockData: boolean = false) => {
   return useQuery<PatientProfile>({
-    queryKey: ['patient', patientId],
+    queryKey: [useMockData ? 'patient-mock' : 'patient', patientId],
     queryFn: async () => {
       if (useMockData) {
         // Return mock data in development

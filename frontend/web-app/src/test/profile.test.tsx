@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { patientApi } from '@/lib/api';
 import { buildProfilePayload, PatientProfileDto, profileForm, toPatientProfile } from '@/lib/profile';
 import Profile from '@/pages/Profile';
+import { usePatient } from '@/hooks/usePatient';
 
 const cache = vi.hoisted(() => ({ update: vi.fn(), toast: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({
@@ -111,4 +112,18 @@ it('updates Auth display cache only after the backend resolves', async () => {
   await waitFor(() => expect(cache.update).toHaveBeenCalledWith(expect.objectContaining({
     name: 'Backend Patient', diabetes: 'true', smokingStatus: 'former_smoker', emergencyContacts: dto.emergency_contacts,
   })));
+});
+
+it('keeps mock dashboard contacts out of the backend patient cache', async () => {
+  vi.spyOn(patientApi, 'getProfile').mockResolvedValue(toPatientProfile(dto));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result, rerender } = renderHook(({ mock }) => usePatient('P001', mock), {
+    initialProps: { mock: true }, wrapper,
+  });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(client.getQueryData(['patient', 'P001'])).toBeUndefined();
+  rerender({ mock: false });
+  await waitFor(() => expect(result.current.data?.firstName).toBe('Backend'));
+  expect(client.getQueryData(['patient', 'P001'])).toEqual(toPatientProfile(dto));
 });
