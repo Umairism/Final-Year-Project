@@ -6,9 +6,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from contextlib import asynccontextmanager
 import uvicorn
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from api.config import get_settings
@@ -63,6 +64,44 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+class UnhandledExceptionMiddleware:
+    """Return sanitized HTTP errors inside CORS, before a response starts."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        response_started = False
+
+        async def tracked_send(message: Message):
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracked_send)
+        except Exception:
+            if response_started:
+                raise
+            logger.exception("Unhandled HTTP request error")
+            response = JSONResponse(
+                status_code=500,
+                content={
+                    "detail": "Internal server error",
+                    "error": "internal_error",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            await response(scope, receive, send)
+
+
+# Last registered user middleware is outermost: errors must pass through CORS.
+app.add_middleware(UnhandledExceptionMiddleware)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
