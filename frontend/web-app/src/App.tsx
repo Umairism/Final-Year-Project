@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -11,6 +12,7 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import { Devices } from "./pages/Devices";
 import NotFound from "./pages/NotFound";
+const Cockpit = lazy(() => import("./pages/Cockpit"));
 import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
 
@@ -90,6 +92,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route path="/cockpit" element={<ProtectedRoute><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading 3D Live View...</div>}><Cockpit /></Suspense></ProtectedRoute>} />
       <Route
         path="/devices"
         element={

@@ -154,6 +154,7 @@ export const Dashboard = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate('/devices')}>
               Devices
             </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/cockpit')}>3D Live View</Button>
             <Button variant="ghost" size="icon" onClick={() => setIsAlertsOpen(true)}>
               <Bell className="h-5 w-5" />
               {unacknowledgedAlerts.length > 0 && (
