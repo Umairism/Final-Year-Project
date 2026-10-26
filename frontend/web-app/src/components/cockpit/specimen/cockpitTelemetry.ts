@@ -1,0 +1,2 @@
+import {TelemetryViewModel,ScenarioName} from './specimenTypes';import {scenarios} from './simulationScenarios';
+export function toCockpitTelemetry(reading:any,age:number|null,scenario:ScenarioName='live'):TelemetryViewModel{if(scenario!=='live')return scenarios[scenario];const fresh=age!=null&&age<=300;return {heartRate:reading?.heartRate??null,spo2:reading?.spo2??null,temperature:reading?.temperature??null,respiratoryRate:reading?.respiratoryRate??null,status:reading?.status??'unknown',isFresh:fresh,bpm:reading?.heartRate??72,simulated:false,scenario:'live'};}
