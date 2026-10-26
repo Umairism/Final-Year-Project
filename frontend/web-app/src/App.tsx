@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 const Cockpit = lazy(() => import("./pages/Cockpit"));
 import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
+import PrivacySession from "./pages/PrivacySession";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/privacy-session" element={<PrivacySession />} />
       <Route
         path="/login"
         element={

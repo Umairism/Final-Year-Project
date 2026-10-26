@@ -1,0 +1,9 @@
+import {Link,useLocation} from 'react-router-dom';
+import {useAuth} from '@/contexts/AuthContext';
+import {currentDemoStep} from '@/lib/demoFlow';
+
+const steps=[
+  ['Privacy','/privacy-session'],['Landing','/'],['Sign In','/login'],['Telemetry','/dashboard'],['3D Cockpit','/cockpit?mode=live'],['Hypoxia Sim','/cockpit?mode=simulation&scenario=hypoxia'],['Return to Live','/cockpit?mode=live'],
+] as const;
+
+export default function DemoFlowStrip({compact=false}:{compact?:boolean}){const location=useLocation();const {isAuthenticated,user}=useAuth();const active=currentDemoStep(location.pathname,location.search);return <div className={`border-b border-white/10 bg-[#080c12] text-zinc-400 ${compact?'py-2':'py-3'}`}><div className="mx-auto flex max-w-7xl items-center gap-4 px-4"><div className="min-w-0 flex-1 overflow-x-auto"><nav aria-label="Clinical demo flow" className="flex min-w-max items-center gap-1"><span className="mr-2 shrink-0 font-mono text-[10px] uppercase tracking-[.18em] text-emerald-400">Flow</span>{steps.map(([label,to],index)=><span key={label} className="flex items-center"><Link to={to} className={`whitespace-nowrap rounded px-2 py-1 font-mono text-[10px] uppercase tracking-[.12em] transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${active===index+1?'bg-emerald-400/10 text-emerald-300':'text-zinc-500'}`} aria-current={active===index+1?'step':undefined}>{String(index+1).padStart(2,'0')} {label}</Link>{index<steps.length-1&&<span className="px-1 text-zinc-700" aria-hidden="true">/</span>}</span>)}</nav></div><div className="hidden shrink-0 text-right font-mono text-[10px] uppercase tracking-[.1em] sm:block"><div className="text-zinc-300">HealSense FYP Demo Flow</div>{isAuthenticated&&<div className="text-emerald-400">Patient {user?.patientId??'authenticated'}</div>}</div></div></div>}
