@@ -83,7 +83,7 @@ const Profile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="glass-app-bg min-h-screen text-slate-800">
       <div className="container mx-auto p-6 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

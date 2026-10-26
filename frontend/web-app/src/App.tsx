@@ -17,6 +17,8 @@ const Cockpit = lazy(() => import("./pages/Cockpit"));
 import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
 import PrivacySession from "./pages/PrivacySession";
+import AppNavbar from "@/components/AppNavbar";
+import DemoFlowStepper from "@/components/landing/DemoFlowStepper";
 
 const queryClient = new QueryClient();
 
@@ -118,16 +120,16 @@ const AppRoutes = () => {
   );
 };
 
+const AppLayout = () => <div className="glass-app-bg min-h-screen"><AppNavbar /><DemoFlowStepper /><AppRoutes /></div>;
+
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <BrowserRouter><AppLayout /></BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

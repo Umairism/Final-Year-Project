@@ -68,7 +68,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background p-4 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top,hsl(var(--primary)/.12),transparent_45%)]">
+    <div className="glass-app-bg relative flex min-h-[calc(100vh-68px)] items-center justify-center overflow-hidden p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">

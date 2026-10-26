@@ -126,9 +126,9 @@ export const Dashboard = () => {
   }));
 
   return (
-    <div className="min-h-screen bg-background">
+      <div className="glass-app-bg min-h-screen">
       {/* Navigation Header */}
-      <header className="border-b bg-card">
+      <header className="glass-panel-strong rounded-2xl border-0">
         <div className="container flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-2">
             <Activity className="h-6 w-6 text-primary" />

@@ -26,19 +26,19 @@ export class SpecimenEngine {
 
   constructor(private host:HTMLElement,beatClock=new SharedBeatClock()){
     this.beatClock=beatClock;
-    this.scene.fog=new THREE.FogExp2(0x010309,.05);
+    this.scene.fog=new THREE.FogExp2(0xe8edf2,.035);
     this.camera=new THREE.PerspectiveCamera(45,1,.1,100);
     this.camera.position.set(0,1.3,5);
-    this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});this.renderer.setClearColor(0xe8edf2,1);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
     host.appendChild(this.renderer.domElement);
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);
     this.controls.enableDamping=true;this.controls.dampingFactor=.05;this.controls.target.set(0,1.3,0);
     this.controls.minDistance=1.8;this.controls.maxDistance=8.5;this.controls.autoRotate=true;this.controls.autoRotateSpeed=.6;
     this.controls.addEventListener('start',()=>{this.focusAnimating=false;this.controls.autoRotate=false;});
-    this.scene.add(new THREE.AmbientLight(0x0a192f,2));
-    const cyan=new THREE.DirectionalLight(0x00f2fe,1.8);cyan.position.set(4,5,4);this.scene.add(cyan);
-    const rose=new THREE.DirectionalLight(0xff2a5f,1.2);rose.position.set(-4,-2,-3);this.scene.add(rose);
+    this.scene.add(new THREE.AmbientLight(0x64748b,2.2));
+    const cyan=new THREE.DirectionalLight(0x0f766e,1.8);cyan.position.set(4,5,4);this.scene.add(cyan);
+    const rose=new THREE.DirectionalLight(0xbe123c,.9);rose.position.set(-4,-2,-3);this.scene.add(rose);
     this.handles=buildSpecimen();
     this.scene.add(this.handles.group,this.handles.group.userData.floor);
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.resize();this.loop();

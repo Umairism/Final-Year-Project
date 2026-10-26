@@ -24,17 +24,17 @@ vi.mock('@/components/vitals/VitalTrendChart', () => ({ VitalTrendChart: () => n
 vi.mock('@/components/TrendChart', () => ({ TrendChart: () => null }));
 vi.mock('@/components/ai/PatientAssistantPanel', () => ({ PatientAssistantPanel: () => null }));
 
-describe('global dark theme contract', () => {
-  it('has a dark document class available for prepaint styling', () => {
-    document.documentElement.classList.add('dark');
-    expect(document.documentElement.classList).toContain('dark');
+describe('global light theme contract', () => {
+  it('does not preload a dark document class', () => {
+    document.documentElement.classList.remove('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
-  it('keeps the dark class while Dashboard mounts', () => {
-    document.documentElement.classList.add('dark');
+  it('keeps the document light while Dashboard mounts', () => {
+    document.documentElement.classList.remove('dark');
     const { unmount } = render(<MemoryRouter><Dashboard /></MemoryRouter>);
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
     unmount();
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 });
