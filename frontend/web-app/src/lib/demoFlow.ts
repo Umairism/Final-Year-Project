@@ -14,12 +14,3 @@ export function parseCockpitQuery(search:string):DemoFlowMode{
 export function cockpitSearchParams(flow:DemoFlowMode){
   return flow.mode==='simulation'?{mode:'simulation',scenario:flow.scenario??'stable'}:{mode:'live'};
 }
-
-export function currentDemoStep(pathname:string,search=''){
-  if(pathname==='/privacy-session')return 1;
-  if(pathname==='/')return 2;
-  if(pathname==='/login')return 3;
-  if(pathname==='/dashboard')return 4;
-  if(pathname==='/cockpit')return parseCockpitQuery(search).mode==='simulation'?6:5;
-  return 2;
-}

@@ -18,7 +18,6 @@ import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
 import PrivacySession from "./pages/PrivacySession";
 import AppNavbar from "@/components/AppNavbar";
-import DemoFlowStepper from "@/components/landing/DemoFlowStepper";
 
 const queryClient = new QueryClient();
 
@@ -120,7 +119,7 @@ const AppRoutes = () => {
   );
 };
 
-const AppLayout = () => <div className="glass-app-bg min-h-screen"><AppNavbar /><DemoFlowStepper /><AppRoutes /></div>;
+const AppLayout = () => <div className="glass-app-bg min-h-screen"><AppNavbar /><AppRoutes /></div>;
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
