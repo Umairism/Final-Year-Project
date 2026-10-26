@@ -6,6 +6,7 @@ import smtplib
 import uuid
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+import httpx
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -96,6 +97,42 @@ def _smtp_send(email: str, link: str) -> None:
 async def send_verification_email(email: str, raw_token: str) -> dict:
     settings = get_settings()
     link = f"{settings.FRONTEND_BASE_URL}/verify-email?token={raw_token}"
+    emailjs_values = {
+        "EMAILJS_SERVICE_ID": settings.EMAILJS_SERVICE_ID,
+        "EMAILJS_TEMPLATE_ID": settings.EMAILJS_TEMPLATE_ID,
+        "EMAILJS_PUBLIC_KEY": settings.EMAILJS_PUBLIC_KEY,
+        "EMAILJS_PRIVATE_KEY": settings.EMAILJS_PRIVATE_KEY,
+    }
+    emailjs_present = [name for name, value in emailjs_values.items() if value]
+    if emailjs_present and len(emailjs_present) != len(emailjs_values):
+        missing = [name for name, value in emailjs_values.items() if not value]
+        raise RuntimeError("EmailJS delivery is not configured; missing: " + ", ".join(missing))
+    if len(emailjs_present) == len(emailjs_values):
+        payload = {
+            "service_id": settings.EMAILJS_SERVICE_ID,
+            "template_id": settings.EMAILJS_TEMPLATE_ID,
+            "user_id": settings.EMAILJS_PUBLIC_KEY,
+            "accessToken": settings.EMAILJS_PRIVATE_KEY,
+            "template_params": {
+                "to_email": email,
+                "verification_link": link,
+                "expires_hours": settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS,
+            },
+        }
+        try:
+            async with httpx.AsyncClient(timeout=settings.EMAILJS_TIMEOUT_SECONDS) as client:
+                response = await client.post(settings.EMAILJS_API_URL, json=payload)
+            if response.status_code != 200:
+                safe_text = response.text[:200].replace("\n", " ")
+                logger.warning("EmailJS delivery failed mode=emailjs status=%s detail=%s", response.status_code, safe_text)
+                raise RuntimeError("EmailJS delivery failed")
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            logger.warning("EmailJS delivery failed mode=emailjs exception=%s", type(exc).__name__)
+            raise RuntimeError("EmailJS delivery failed") from exc
+        logger.info("Email delivery mode=emailjs status=%s", response.status_code)
+        return {"mode": "emailjs", "sent": True}
     configured = all([settings.MAIL_SERVER, settings.MAIL_USERNAME, settings.MAIL_PASSWORD, settings.MAIL_DEFAULT_SENDER])
     if configured:
         await asyncio.to_thread(_smtp_send, email, link)

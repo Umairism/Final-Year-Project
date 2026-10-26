@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     MAIL_USERNAME: Optional[str] = None
     MAIL_PASSWORD: Optional[str] = None
     MAIL_DEFAULT_SENDER: Optional[str] = None
+    EMAILJS_SERVICE_ID: Optional[str] = None
+    EMAILJS_TEMPLATE_ID: Optional[str] = None
+    EMAILJS_PUBLIC_KEY: Optional[str] = Field(default=None, validation_alias=AliasChoices("EMAILJS_PUBLIC_KEY", "EMAILJS_USER_ID"))
+    EMAILJS_PRIVATE_KEY: Optional[str] = Field(default=None, validation_alias=AliasChoices("EMAILJS_PRIVATE_KEY", "EMAILJS_ACCESS_TOKEN"))
+    EMAILJS_API_URL: str = "https://api.emailjs.com/api/v1.0/email/send"
+    EMAILJS_TIMEOUT_SECONDS: float = 15
     
     # Cache/Queue
     REDIS_HOST: str = "localhost"
