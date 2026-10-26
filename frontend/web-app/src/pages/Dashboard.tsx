@@ -10,7 +10,6 @@ import { VitalCard } from '@/components/VitalCard';
 import { TrendChart } from '@/components/TrendChart';
 import { AlertBanner } from '@/components/AlertBanner';
 import { HistoryTable } from '@/components/HistoryTable';
-import { PatientHeader } from '@/components/PatientHeader';
 import { EmergencyButton } from '@/components/EmergencyButton';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AlertsDialog } from '@/components/AlertsDialog';
@@ -79,20 +78,11 @@ export const Dashboard = () => {
     API_CONFIG.useMockData
   );
 
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isBpEntryOpen, setIsBpEntryOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   const handleLogout = async () => {
     await logout();
@@ -141,7 +131,7 @@ export const Dashboard = () => {
       <header className="border-b bg-card">
         <div className="container flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-blue-600" />
+            <Activity className="h-6 w-6 text-primary" />
             <span className="font-bold text-xl">HealSense</span>
           </div>
           <div className="flex items-center gap-4">
@@ -195,7 +185,7 @@ export const Dashboard = () => {
             {currentReading && <Badge variant="outline">Last reading: {currentReading.timestamp.toLocaleTimeString()} ({formatAgeSeconds(Math.floor((now-currentReading.timestamp.getTime())/1000))})</Badge>}
           </div>
         </div>
-        {hasDemo && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">DEMO DATA — simulated or seeded readings are shown. These values are not being presented as live patient telemetry.</div>}
+        {hasDemo && <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-200">DEMO DATA — simulated or seeded readings are shown. These values are not being presented as live patient telemetry.</div>}
 
         {/* Alert Banner */}
         <AlertBanner

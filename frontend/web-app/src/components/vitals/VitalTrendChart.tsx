@@ -31,12 +31,12 @@ export const VitalTrendChart: React.FC<VitalTrendChartProps> = ({ data }) => {
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="timestamp" stroke="#888888" fontSize={12} />
-              <YAxis yAxisId="left" stroke="#888888" fontSize={12} />
-              <YAxis yAxisId="right" orientation="right" domain={[0, 1]} stroke="#888888" fontSize={12} />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" opacity={0.45} />
+              <XAxis dataKey="timestamp" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 1]} stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--popover-foreground))' }} labelStyle={{ color: 'hsl(var(--popover-foreground))' }} />
+              <Legend wrapperStyle={{ color: 'hsl(var(--muted-foreground))' }} />
               <Line
                 yAxisId="left"
                 type="monotone"

@@ -83,7 +83,7 @@ const Profile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-6 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -127,7 +127,7 @@ const Profile = () => {
             {/* Personal Information */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <User className="h-5 w-5 text-blue-600" />
+                <User className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Personal Information</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,7 +151,7 @@ const Profile = () => {
                     id="email"
                     value={profile.email ?? ''}
                     disabled
-                    className="bg-gray-100 dark:bg-gray-800"
+                    className="bg-muted"
                   />
                 </div>
                 <div className="space-y-2">
@@ -211,7 +211,7 @@ const Profile = () => {
             {/* Medical Information */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Heart className="h-5 w-5 text-red-600" />
+                <Heart className="h-5 w-5 text-destructive" />
                 <h3 className="text-lg font-semibold">Medical Information</h3>
               </div>
               <div className="space-y-4">
@@ -288,13 +288,13 @@ const Profile = () => {
             {/* Emergency Contacts */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Phone className="h-5 w-5 text-green-600" />
+                <Phone className="h-5 w-5 text-success" />
                 <h3 className="text-lg font-semibold">Emergency Contacts</h3>
               </div>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-border bg-primary/10 p-4">
                   <div className="col-span-2">
-                    <Label className="text-blue-900 dark:text-blue-100">Doctor</Label>
+                    <Label className="text-primary">Doctor</Label>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="doctorName">Name</Label>
@@ -318,9 +318,9 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-lg border border-border bg-muted p-4">
                   <div className="col-span-3">
-                    <Label className="text-purple-900 dark:text-purple-100">Family Contact</Label>
+                    <Label className="text-foreground">Family Contact</Label>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="familyName">Name</Label>

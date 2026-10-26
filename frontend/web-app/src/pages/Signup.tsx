@@ -68,11 +68,11 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background p-4 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top,hsl(var(--primary)/.12),transparent_45%)]">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Activity className="h-12 w-12 text-blue-600" />
+            <Activity className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
           <CardDescription className="text-center">
@@ -184,9 +184,9 @@ const Signup = () => {
               {isLoading ? 'Creating account...' : 'Sign Up'}
             </Button>
             
-            <div className="text-sm text-center text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 hover:underline dark:text-blue-400">
+              <Link to="/login" className="text-primary hover:underline">
                 Sign in
               </Link>
             </div>
