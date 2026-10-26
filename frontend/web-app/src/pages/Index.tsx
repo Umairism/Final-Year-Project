@@ -1,129 +1,26 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, Heart, AlertCircle, Users } from 'lucide-react';
+import {Link} from 'react-router-dom';
+import {useAuth} from '@/contexts/AuthContext';
+import {Activity,ArrowRight,BrainCircuit,ChevronDown,CircleAlert,HeartPulse,Menu,ShieldCheck,Wifi, X} from 'lucide-react';
+import {useState} from 'react';
 
-const Index = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+const SectionLabel=({children}:{children:string})=><p className="mb-4 text-xs font-semibold uppercase tracking-[.22em] text-[#b56e52]">{children}</p>;
+const ArrowLink=({to,children}:{to:string;children:string})=><Link to={to} className="inline-flex items-center gap-2 font-semibold text-[#314d40] underline decoration-[#e2aa91] decoration-2 underline-offset-4 transition hover:text-[#b56e52]">{children}<ArrowRight className="h-4 w-4"/></Link>;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-4 py-16">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
-            <Activity className="h-20 w-20 text-blue-600" />
-          </div>
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            HealSense
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-            AI-Powered Health Monitoring & Risk Prediction System
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={() => window.location.href = '/login'}>
-              Sign In
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => window.location.href = '/signup'}>
-              Create Account
-            </Button>
-          </div>
-        </div>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          <Card>
-            <CardHeader>
-              <Heart className="h-10 w-10 text-red-500 mb-2" />
-              <CardTitle>Real-Time Monitoring</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Continuous tracking of 5 critical vital signs with instant updates
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <Activity className="h-10 w-10 text-blue-500 mb-2" />
-              <CardTitle>AI Predictions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                LSTM deep learning model with 93%+ accuracy for health risk detection
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <AlertCircle className="h-10 w-10 text-yellow-500 mb-2" />
-              <CardTitle>Smart Alerts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Automatic notifications when vitals exceed safe thresholds
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <Users className="h-10 w-10 text-green-500 mb-2" />
-              <CardTitle>Emergency System</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                One-tap access to emergency contacts with vital signs data
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-16 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-            Proven Performance
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
-            <div>
-              <div className="text-4xl font-bold text-blue-600">93%+</div>
-              <div className="text-gray-600 dark:text-gray-400 mt-2">Accuracy</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-green-600">96%+</div>
-              <div className="text-gray-600 dark:text-gray-400 mt-2">Critical Recall</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-purple-600">&lt;5MB</div>
-              <div className="text-gray-600 dark:text-gray-400 mt-2">Model Size</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-red-600">&lt;100ms</div>
-              <div className="text-gray-600 dark:text-gray-400 mt-2">Inference Time</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Index;
+export default function Index(){
+  const {isAuthenticated,isLoading}=useAuth();const [menuOpen,setMenuOpen]=useState(false);
+  if(isLoading)return <div className="flex min-h-screen items-center justify-center bg-[#fbf7f0] text-[#314d40]" role="status">Loading HealSense…</div>;
+  return <div className="min-h-screen overflow-x-hidden bg-[#fbf7f0] text-[#263b32]">
+    <header className="sticky top-0 z-30 border-b border-[#314d40]/10 bg-[#fbf7f0]/95 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-4 lg:px-8"><Link to="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#314d40]" aria-label="HealSense home"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#314d40] text-[#fbf7f0]"><HeartPulse className="h-5 w-5"/></span>HealSense</Link><nav className={`${menuOpen?'flex':'hidden'} absolute left-0 right-0 top-full flex-col gap-4 border-b border-[#314d40]/10 bg-[#fbf7f0] px-5 py-5 md:static md:flex md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0`} aria-label="Primary navigation"><a href="#approach" onClick={()=>setMenuOpen(false)} className="text-sm text-[#55665c] transition hover:text-[#b56e52]">How it works</a><a href="#monitors" onClick={()=>setMenuOpen(false)} className="text-sm text-[#55665c] transition hover:text-[#b56e52]">What it monitors</a><a href="#snapshot" onClick={()=>setMenuOpen(false)} className="text-sm text-[#55665c] transition hover:text-[#b56e52]">Sample snapshot</a><a href="#faq" onClick={()=>setMenuOpen(false)} className="text-sm text-[#55665c] transition hover:text-[#b56e52]">FAQ</a></nav><div className="hidden items-center gap-3 md:flex">{isAuthenticated?<><Link to="/dashboard" className="rounded-full px-4 py-2 text-sm font-semibold text-[#314d40] hover:bg-[#e9eee7]">Open Telemetry Dashboard</Link><Link to="/cockpit" className="rounded-full bg-[#314d40] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#263b32]">3D Specimen Cockpit</Link></>:<><Link to="/login" className="rounded-full px-4 py-2 text-sm font-semibold text-[#314d40] hover:bg-[#e9eee7]">Sign In</Link><Link to="/signup" className="rounded-full bg-[#314d40] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#263b32]">Create Account</Link></>}</div><button type="button" className="rounded-lg p-2 text-[#314d40] md:hidden" aria-label={menuOpen?'Close menu':'Open menu'} onClick={()=>setMenuOpen(value=>!value)}>{menuOpen?<X className="h-5 w-5"/>:<Menu className="h-5 w-5"/>}</button></div></header>
+    <main>
+      <section className="mx-auto grid max-w-7xl gap-12 px-5 pb-20 pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-8 lg:pb-28 lg:pt-24"><div><SectionLabel>Remote patient monitoring, with you in mind</SectionLabel><h1 className="max-w-3xl font-display text-5xl font-medium leading-[.98] tracking-[-.055em] text-[#314d40] sm:text-7xl">Live well.<br/><span className="text-[#b56e52]">With HealSense.</span></h1><p className="mt-7 max-w-xl text-lg leading-8 text-[#627269]">ESP32 vital-sign monitoring, safety-first risk fusion, and plain-language explanations that help make a health trend easier to understand.</p><div className="mt-9 flex flex-wrap gap-3">{isAuthenticated?<><Link to="/dashboard" className="rounded-full bg-[#314d40] px-6 py-3 font-semibold text-white shadow-lg shadow-[#314d40]/10 transition hover:-translate-y-0.5">Open Telemetry Dashboard</Link><Link to="/cockpit" className="rounded-full border border-[#314d40]/20 bg-white/60 px-6 py-3 font-semibold text-[#314d40] transition hover:bg-white">Explore 3D Specimen</Link></>:<><Link to="/signup" className="rounded-full bg-[#314d40] px-6 py-3 font-semibold text-white shadow-lg shadow-[#314d40]/10 transition hover:-translate-y-0.5">Create Account</Link><Link to="/login" className="rounded-full border border-[#314d40]/20 bg-white/60 px-6 py-3 font-semibold text-[#314d40] transition hover:bg-white">Sign In</Link></>}<a href="#approach" className="inline-flex items-center gap-2 rounded-full px-4 py-3 font-semibold text-[#b56e52]">See how it works <ArrowRight className="h-4 w-4"/></a></div><p className="mt-6 text-xs text-[#7b887f]">Decision support — not a substitute for professional medical care.</p></div><div className="relative min-h-[430px] overflow-hidden rounded-[2.25rem] bg-[#dce7dc] p-5 shadow-[0_25px_80px_rgba(49,77,64,.12)] sm:min-h-[520px]"><div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#f1cbb8]/80 blur-2xl"/><div className="absolute -bottom-24 -left-16 h-80 w-80 rounded-full bg-[#b5d0c1]/90 blur-2xl"/><div className="relative flex h-full min-h-[390px] items-end justify-center rounded-[1.75rem] border border-white/70 bg-[radial-gradient(circle_at_50%_35%,rgba(255,255,255,.92),rgba(220,231,220,.35)_47%,rgba(181,208,193,.55)_100%)] p-8"><div className="absolute left-6 top-6 rounded-full bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[.18em] text-[#b56e52]">A clearer view</div><div className="relative h-72 w-48 rounded-[48%_48%_40%_40%] border-2 border-[#314d40]/35 bg-gradient-to-b from-[#f5d7c6]/80 via-[#d9b6a3]/75 to-[#8b9f91]/70 shadow-[inset_18px_-18px_35px_rgba(49,77,64,.16)]"><div className="absolute left-1/2 top-12 h-16 w-16 -translate-x-1/2 rounded-full border border-[#b56e52]/35 bg-[#f4d7c6]/90"/><div className="absolute left-1/2 top-32 h-20 w-28 -translate-x-1/2 rounded-[50%] border border-[#b56e52]/35 bg-[#f3c8b5]/65"/><div className="absolute -right-16 top-24 rounded-xl border border-white/80 bg-white/85 px-3 py-2 text-xs text-[#314d40] shadow-sm"><span className="mb-1 block h-2 w-2 rounded-full bg-[#6d9b7f]"/>Trends, made visible</div><div className="absolute -left-16 bottom-12 rounded-xl border border-white/80 bg-white/85 px-3 py-2 text-xs text-[#314d40] shadow-sm"><span className="mb-1 block h-2 w-2 rounded-full bg-[#d89575]"/>Context over noise</div></div></div></div></section>
+      <section className="border-y border-[#314d40]/10 bg-[#f2eee5] py-20"><div className="mx-auto grid max-w-7xl gap-12 px-5 lg:grid-cols-[.8fr_1.2fr] lg:px-8"><div><SectionLabel>A different kind of monitoring</SectionLabel><h2 className="max-w-lg font-display text-4xl leading-tight tracking-[-.04em] text-[#314d40] sm:text-5xl">Not just a reading. A person. A trend. A timely warning.</h2></div><p className="max-w-2xl self-end text-lg leading-8 text-[#65746a]">HealSense brings the pieces together so patients, families, and care teams can see what is happening over time — with the data source and its freshness kept visible.</p></div></section>
+      <section id="approach" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 lg:px-8 lg:py-28"><SectionLabel>Our approach</SectionLabel><div className="grid gap-6 md:grid-cols-3">{[{number:'01',icon:<Wifi/>,title:'Continuous monitoring',body:'HR, SpO₂ and temperature from the HealSense ESP32 node; blood pressure from a home cuff.'},{number:'02',icon:<ShieldCheck/>,title:'Safety-first risk fusion',body:'Deterministic rules and an LSTM work together. Critical rules cannot be overridden by ML or AI.'},{number:'03',icon:<BrainCircuit/>,title:'Clear explanations',body:'Grounded AI explains the patient’s own trends using de-identified clinical context.'}].map(item=><article key={item.number} className="rounded-3xl border border-[#314d40]/10 bg-white/60 p-7"><div className="flex items-center justify-between text-[#b56e52]"><span className="font-display text-4xl">{item.number}</span><span className="rounded-full bg-[#e9eee7] p-3 text-[#314d40]">{item.icon}</span></div><h3 className="mt-10 text-xl font-semibold text-[#314d40]">{item.title}</h3><p className="mt-3 leading-7 text-[#68776d]">{item.body}</p></article>)}</div></section>
+      <section className="bg-[#314d40] py-20 text-[#f7f2e9]"><div className="mx-auto max-w-7xl px-5 lg:px-8"><SectionLabel>How it works</SectionLabel><div className="grid gap-8 md:grid-cols-3">{[['Connect the device','Your ESP32 node reports supported vital signs.'],['See the trend','HealSense analyses trends and risk using the available readings.'],['Support the next step','Alerts and explanations make the next conversation clearer.']].map((step,index)=><div key={step[0]} className="border-t border-white/20 pt-6"><span className="text-sm text-[#efb69d]">0{index+1}</span><h3 className="mt-5 text-2xl font-medium">{step[0]}</h3><p className="mt-3 leading-7 text-[#c7d3c9]">{step[1]}</p></div>)}</div></div></section>
+      <section id="snapshot" className="mx-auto grid max-w-7xl scroll-mt-24 gap-12 px-5 py-20 lg:grid-cols-[.8fr_1.2fr] lg:px-8 lg:py-28"><div><SectionLabel>Sample snapshot</SectionLabel><h2 className="font-display text-4xl tracking-[-.04em] text-[#314d40] sm:text-5xl">A calm place to start.</h2><p className="mt-5 max-w-md leading-7 text-[#68776d]">The dashboard keeps readings, freshness, source, risk context, and explanations together. Your live values appear after sign in.</p><p className="mt-5 text-sm font-semibold text-[#b56e52]">Illustrative sample — sign in to see your live data.</p></div><div className="rounded-[2rem] border border-[#314d40]/10 bg-white p-5 shadow-[0_20px_55px_rgba(49,77,64,.08)]"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#314d40]/10 pb-4"><div><p className="text-sm font-semibold text-[#314d40]">Telemetry snapshot</p><p className="text-xs text-[#87938a]">Illustrative sample only · source and freshness shown in app</p></div><span className="rounded-full bg-[#e9eee7] px-3 py-1 text-xs font-semibold text-[#557761]">Sample</span></div><div className="grid gap-3 py-5 sm:grid-cols-3">{[['Heart rate','—','bpm'],['SpO₂','—','%'],['Temperature','—','°C']].map(item=><div key={item[0]} className="rounded-2xl bg-[#f2eee5] p-4"><p className="text-xs uppercase tracking-wider text-[#87938a]">{item[0]}</p><p className="mt-4 text-2xl font-semibold text-[#314d40]">{item[1]} <span className="text-xs font-normal text-[#87938a]">{item[2]}</span></p></div>)}</div><div className="rounded-2xl border border-dashed border-[#b56e52]/35 bg-[#fff8f2] p-4 text-sm text-[#7d7068]">No patient telemetry is represented in this sample card.</div></div></section>
+      <section id="monitors" className="scroll-mt-24 bg-[#e9eee7] py-20"><div className="mx-auto max-w-7xl px-5 lg:px-8"><SectionLabel>What HealSense monitors</SectionLabel><div className="grid gap-5 md:grid-cols-3">{[{icon:<HeartPulse/>,title:'Core Vitals',body:'Heart rate, SpO₂, temperature, respiratory rate when available, and intermittent cuff blood pressure.'},{icon:<CircleAlert/>,title:'Risk & Alerts',body:'Backend risk fusion, deterministic safety flags, device source, and reading freshness stay visible.'},{icon:<BrainCircuit/>,title:'AI Explanations',body:'A grounded assistant explains the patient’s own available context. It does not create new measurements.'}].map(item=><article key={item.title} className="rounded-3xl bg-[#fbf7f0] p-7"><div className="mb-8 grid h-11 w-11 place-items-center rounded-full bg-[#314d40] text-[#f7f2e9]">{item.icon}</div><h3 className="text-xl font-semibold text-[#314d40]">{item.title}</h3><p className="mt-3 leading-7 text-[#68776d]">{item.body}</p></article>)}</div></div></section>
+      <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28"><SectionLabel>Who it helps</SectionLabel><div className="grid gap-5 md:grid-cols-3">{[['Patients at home','A clearer view of the readings your connected device reports.'],['Family caregivers','A shared language for freshness, trends, flags, and questions.'],['Care teams','A decision-support view that keeps backend context close at hand.']].map(item=><article key={item[0]} className="border-l-2 border-[#e2aa91] pl-6"><h3 className="text-xl font-semibold text-[#314d40]">{item[0]}</h3><p className="mt-3 leading-7 text-[#68776d]">{item[1]}</p></article>)}</div></section>
+      <section id="faq" className="scroll-mt-24 border-t border-[#314d40]/10 bg-[#f2eee5] py-20"><div className="mx-auto max-w-4xl px-5 lg:px-8"><SectionLabel>Questions, answered</SectionLabel><div className="divide-y divide-[#314d40]/15">{[['Does HealSense replace my doctor?','No. HealSense is decision support and is not a substitute for professional medical care.'],['What hardware does it use?','The system uses an ESP32 node with MAX30102 and MLX90614 sensors, plus manual cuff blood pressure entry.'],['Is the AI making a medical determination?','No. Deterministic rules and the LSTM decide risk levels; Gemini explains the patient’s de-identified context.'],['How is privacy handled?','Identity and emergency-contact details are never sent to AI; the clinical profile provided to the assistant is de-identified.'],['Is data live?','Only when a device reports. Stale or simulated data is labelled in the interface.'],['What is the 3D Specimen Cockpit?','It is an illustrative live-data visualization, not medical imaging.']].map(item=><details key={item[0]} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-lg font-semibold text-[#314d40]"><span>{item[0]}</span><ChevronDown className="h-5 w-5 shrink-0 transition group-open:rotate-180"/></summary><p className="max-w-3xl pt-4 leading-7 text-[#68776d]">{item[1]}</p></details>)}</div></div></section>
+      <section className="mx-auto max-w-7xl px-5 py-20 text-center lg:px-8 lg:py-28"><p className="text-xs font-semibold uppercase tracking-[.22em] text-[#b56e52]">A quieter kind of confidence</p><h2 className="mx-auto mt-5 max-w-3xl font-display text-5xl leading-tight tracking-[-.05em] text-[#314d40] sm:text-7xl">A little clarity.<br/><span className="text-[#b56e52]">A lot more life.</span></h2><p className="mx-auto mt-6 max-w-xl leading-7 text-[#68776d]">Start with the information your system can truthfully report, then bring better questions to the people who care for you.</p><div className="mt-8">{isAuthenticated?<Link to="/dashboard" className="inline-flex rounded-full bg-[#314d40] px-7 py-3 font-semibold text-white">Open Telemetry Dashboard</Link>:<Link to="/signup" className="inline-flex rounded-full bg-[#314d40] px-7 py-3 font-semibold text-white">Create Account</Link>}</div></section>
+    </main><footer className="border-t border-[#314d40]/10 bg-[#e9eee7] px-5 py-8 text-sm text-[#68776d]"><div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:px-3"><span className="font-semibold text-[#314d40]">HealSense</span><span>Final Year Project decision-support demonstration.</span><span>For emergencies, contact local emergency services.</span></div></footer>
+  </div>;
+}
