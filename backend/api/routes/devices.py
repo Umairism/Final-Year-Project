@@ -2,6 +2,8 @@
 IoT Device management endpoints - Database version
 Supports both hardware IoT devices and mobile phone sensors
 """
+import secrets
+
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -9,12 +11,82 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from api.models.schemas import DeviceStatus
-from api.models.database import Device, DeviceType, get_db
+from api.models.database import Device, DeviceType, Patient, User, get_db
+from api.routes.auth import get_current_user
 from api.services.realtime import realtime_manager
+from api.services.telemetry_service import hash_api_key
 from api.services.device_presence import compute_device_presence
 from api.config import get_settings
 
 router = APIRouter()
+
+
+def _device_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Device not found",
+    )
+
+
+def _own_patient_id(current_user: User) -> str:
+    if not current_user.patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "patient_not_linked",
+                "message": "This account is not linked to a patient record",
+            },
+        )
+    return current_user.patient_id
+
+
+def _require_own_patient(current_user: User, patient_id: str) -> str:
+    own_patient_id = _own_patient_id(current_user)
+    if patient_id != own_patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this patient's devices",
+        )
+    return own_patient_id
+
+
+def _get_owned_device(db: Session, device_id: str, current_user: User) -> Device:
+    own_patient_id = _own_patient_id(current_user)
+    device = (
+        db.query(Device)
+        .filter(Device.device_id == device_id, Device.patient_id == own_patient_id)
+        .first()
+    )
+    if not device:
+        raise _device_not_found()
+    return device
+
+
+def _get_assignable_device(db: Session, device_id: str, current_user: User):
+    own_patient_id = _own_patient_id(current_user)
+    patient = db.query(Patient).filter(Patient.id == own_patient_id).first()
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Linked patient not found",
+        )
+    device = db.query(Device).filter(Device.device_id == device_id).first()
+    if device and device.patient_id not in (None, own_patient_id):
+        raise _device_not_found()
+    return device, own_patient_id
+
+
+def _device_summary(device: Device):
+    return {
+        "device_id": device.device_id,
+        "patient_id": device.patient_id,
+        "device_type": device.device_type.value if device.device_type else None,
+        "connected": device.connected,
+        "battery_level": device.battery_level,
+        "signal_strength": device.signal_strength,
+        "last_heartbeat": device.last_heartbeat,
+    }
+
 
 
 # Pydantic schemas for phone device registration
@@ -39,23 +111,27 @@ class PhoneVitalsInput(BaseModel):
 
 
 @router.get("/{device_id}/status", response_model=DeviceStatus)
-async def get_device_status(device_id: str, db: Session = Depends(get_db)):
-    """Get device status"""
-    device = db.query(Device).filter(Device.device_id == device_id).first()
-    
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device {device_id} not found"
-        )
+async def get_device_status(
+    device_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get status for a device assigned to the authenticated user."""
+    device = _get_owned_device(db, device_id, current_user)
     
     return {**{c.name: getattr(device, c.name) for c in Device.__table__.columns}, **compute_device_presence(device, online_window_seconds=get_settings().DEVICE_ONLINE_WINDOW_SECONDS)}
 
 
 @router.post("/{device_id}/connect")
-async def connect_device(device_id: str, patient_id: str, db: Session = Depends(get_db)):
-    """Connect device to a patient"""
-    device = db.query(Device).filter(Device.device_id == device_id).first()
+async def connect_device(
+    device_id: str,
+    patient_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Connect a device to the authenticated user's own patient."""
+    _require_own_patient(current_user, patient_id)
+    device, _ = _get_assignable_device(db, device_id, current_user)
     
     if not device:
         # Create new device
@@ -89,20 +165,18 @@ async def connect_device(device_id: str, patient_id: str, db: Session = Depends(
     
     return {
         "message": f"Device {device_id} connected to patient {patient_id}",
-        "device": device
+        "device": _device_summary(device)
     }
 
 
 @router.post("/{device_id}/disconnect")
-async def disconnect_device(device_id: str, db: Session = Depends(get_db)):
-    """Disconnect device"""
-    device = db.query(Device).filter(Device.device_id == device_id).first()
-    
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device {device_id} not found"
-        )
+async def disconnect_device(
+    device_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Disconnect a device assigned to the authenticated user."""
+    device = _get_owned_device(db, device_id, current_user)
     
     device.connected = False
     device.updated_at = datetime.utcnow()
@@ -122,14 +196,60 @@ async def disconnect_device(device_id: str, db: Session = Depends(get_db)):
     
     return {
         "message": f"Device {device_id} disconnected",
-        "device": device
+        "device": _device_summary(device)
+    }
+
+
+
+@router.post("/{device_id}/api-key")
+async def issue_device_api_key(
+    device_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Provision or rotate a hardware device API key.
+
+    The raw key is returned only in this response. Only its SHA-256 hash
+    is stored in the database.
+    """
+    device, own_patient_id = _get_assignable_device(db, device_id, current_user)
+
+    if device and device.device_type != DeviceType.IOT_HARDWARE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="API keys can only be issued to IoT hardware devices",
+        )
+
+    if not device:
+        device = Device(
+            device_id=device_id,
+            patient_id=own_patient_id,
+            device_type=DeviceType.IOT_HARDWARE,
+            connected=True,
+        )
+        db.add(device)
+
+    raw_api_key = secrets.token_urlsafe(32)
+    device.patient_id = own_patient_id
+    device.api_key_hash = hash_api_key(raw_api_key)
+    device.connected = True
+    device.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(device)
+
+    return {
+        "message": "Device API key issued. Store it now; it will not be shown again.",
+        "device_id": device.device_id,
+        "patient_id": device.patient_id,
+        "device_api_key": raw_api_key,
     }
 
 
 @router.post("/register/phone")
 async def register_phone_device(
     data: PhoneDeviceRegister,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Register a patient's smartphone as a monitoring device
@@ -137,6 +257,14 @@ async def register_phone_device(
     Enables using phone sensors (Samsung Health, Apple HealthKit) 
     as an alternative to dedicated IoT hardware.
     """
+    _require_own_patient(current_user, data.patient_id)
+    patient = db.query(Patient).filter(Patient.id == data.patient_id).first()
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Linked patient not found",
+        )
+
     # Generate unique device ID for phone
     device_id = f"PHONE_{data.patient_id}"
     
@@ -144,7 +272,10 @@ async def register_phone_device(
     existing = db.query(Device).filter(Device.device_id == device_id).first()
     
     if existing:
+        if existing.patient_id not in (None, data.patient_id):
+            raise _device_not_found()
         # Update existing phone device
+        existing.patient_id = data.patient_id
         existing.device_type = DeviceType.MOBILE_APP
         existing.phone_model = data.phone_model
         existing.phone_os = data.phone_os
@@ -197,12 +328,17 @@ async def register_phone_device(
 
 
 @router.get("/patient/{patient_id}/sources")
-async def get_patient_data_sources(patient_id: str, db: Session = Depends(get_db)):
+async def get_patient_data_sources(
+    patient_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Get all active data sources (IoT devices + phone sensors) for a patient
     
     Returns priority-ordered list showing which devices are available.
     """
+    _require_own_patient(current_user, patient_id)
     devices = db.query(Device).filter(
         Device.patient_id == patient_id
     ).order_by(

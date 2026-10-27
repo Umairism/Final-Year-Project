@@ -19,7 +19,9 @@ from api.models.schemas import (
     BpEntryResponse,
 )
 from api.services.bp_service import bp_service
+from api.routes.auth import get_current_user
 from api.models.database import (
+    User,
     Patient,
     VitalSigns,
     Alert,
@@ -37,7 +39,21 @@ from api.services.telemetry_service import telemetry_service
 router = APIRouter()
 
 
-@router.get("/{patient_id}", response_model=PatientSchema)
+def require_patient_owner(
+    patient_id: str,
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Allow access only to the verified user's linked patient record."""
+    if not current_user.patient_id or current_user.patient_id != patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this patient's records",
+        )
+    return current_user
+
+
+
+@router.get("/{patient_id}", response_model=PatientSchema, dependencies=[Depends(require_patient_owner)])
 async def get_patient(patient_id: str, db: Session = Depends(get_db)):
     """Get patient by ID"""
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -51,7 +67,7 @@ async def get_patient(patient_id: str, db: Session = Depends(get_db)):
     return patient
 
 
-@router.get("/{patient_id}/profile", response_model=PatientProfile)
+@router.get("/{patient_id}/profile", response_model=PatientProfile, dependencies=[Depends(require_patient_owner)])
 async def get_patient_profile(patient_id: str, db: Session = Depends(get_db)):
     """Get patient profile with latest vitals"""
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -100,7 +116,7 @@ async def get_patient_profile(patient_id: str, db: Session = Depends(get_db)):
     return patient_dict
 
 
-@router.get("/{patient_id}/vitals/latest", response_model=VitalSignsSchema)
+@router.get("/{patient_id}/vitals/latest", response_model=VitalSignsSchema, dependencies=[Depends(require_patient_owner)])
 async def get_latest_vitals(patient_id: str, db: Session = Depends(get_db)):
     """Get latest vital signs for a patient"""
     # Check if patient exists
@@ -128,7 +144,7 @@ async def get_latest_vitals(patient_id: str, db: Session = Depends(get_db)):
     return vitals
 
 
-@router.get("/{patient_id}/vitals/history", response_model=List[VitalSignsSchema])
+@router.get("/{patient_id}/vitals/history", response_model=List[VitalSignsSchema], dependencies=[Depends(require_patient_owner)])
 async def get_vital_history(
     patient_id: str,
     minutes: int = 60,
@@ -160,7 +176,7 @@ async def get_vital_history(
     return vitals
 
 
-@router.get("/{patient_id}/fusion_risk")
+@router.get("/{patient_id}/fusion_risk", dependencies=[Depends(require_patient_owner)])
 async def get_fusion_risk(patient_id: str, db: Session = Depends(get_db)):
     """Evaluate patient risk using the Hybrid Fusion Engine"""
     # 1. Fetch Patient
@@ -230,7 +246,7 @@ async def get_fusion_risk(patient_id: str, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/{patient_id}/alerts", response_model=List[AlertSchema])
+@router.get("/{patient_id}/alerts", response_model=List[AlertSchema], dependencies=[Depends(require_patient_owner)])
 async def get_patient_alerts(patient_id: str, db: Session = Depends(get_db)):
     """Get alerts for a patient"""
     # Check if patient exists
@@ -252,7 +268,7 @@ async def get_patient_alerts(patient_id: str, db: Session = Depends(get_db)):
     return alerts
 
 
-@router.post("/{patient_id}/vitals", response_model=VitalSignsSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/{patient_id}/vitals", response_model=VitalSignsSchema, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_patient_owner)])
 async def create_vital_signs(
     patient_id: str,
     vitals: VitalSignsSchema,
@@ -294,11 +310,12 @@ async def create_vital_signs(
         timestamp=vitals.timestamp or datetime.utcnow()
     )
 
-    # Process ingestion via shared telemetry service (bypassing hardware API key for internal patient route)
-    telemetry_resp = await telemetry_service.process_telemetry(
+    # This route is JWT-authenticated and patient-owner checked, so use
+    # the trusted internal pipeline. A stored API-key hash is not a key.
+    telemetry_resp = await telemetry_service.process_internal_telemetry(
         payload=payload,
-        x_device_api_key=device.api_key_hash, # Use stored hash or None to satisfy internal route
-        db=db
+        db=db,
+        authorized_patient_id=patient_id,
     )
 
     # Fetch created vital record
@@ -306,7 +323,7 @@ async def create_vital_signs(
     return db_vitals
 
 
-@router.post("/{patient_id}/vitals/phone", status_code=status.HTTP_201_CREATED)
+@router.post("/{patient_id}/vitals/phone", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_patient_owner)])
 async def create_vitals_from_phone(
     patient_id: str,
     device_id: str,
@@ -462,6 +479,7 @@ async def create_vitals_from_phone(
     response_model=BpEntryResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Record an intermittent blood-pressure measurement",
+    dependencies=[Depends(require_patient_owner)],
 )
 async def record_blood_pressure(
     patient_id: str,
@@ -481,7 +499,7 @@ async def record_blood_pressure(
     return await bp_service.record_bp(patient_id, entry, db)
 
 
-@router.get("/{patient_id}/bp/history", summary="List recorded blood-pressure measurements")
+@router.get("/{patient_id}/bp/history", summary="List recorded blood-pressure measurements", dependencies=[Depends(require_patient_owner)])
 async def get_bp_history(
     patient_id: str,
     limit: int = 30,
@@ -523,7 +541,7 @@ async def get_bp_history(
     ]
 
 
-@router.post("/{patient_id}/emergency")
+@router.post("/{patient_id}/emergency", dependencies=[Depends(require_patient_owner)])
 async def trigger_emergency(patient_id: str, db: Session = Depends(get_db)):
     """Trigger emergency alert for a patient"""
     # Check if patient exists
@@ -564,60 +582,28 @@ async def trigger_emergency(patient_id: str, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/", response_model=PatientSchema, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=PatientSchema,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_user)],
+)
 async def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
-    """Create a new patient"""
-    # Generate patient ID
-    # Get count of existing patients
-    count = db.query(Patient).count()
-    patient_id = f"P{str(count + 1).zfill(3)}"
-    
-    # Check if email already exists
-    if patient.email:
-        existing = db.query(Patient).filter(Patient.email == patient.email).first()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
-    
-    # Create new patient
-    db_patient = Patient(
-        id=patient_id,
-        first_name=patient.first_name,
-        last_name=patient.last_name,
-        age=patient.age,
-        gender=patient.gender,
-        blood_type=patient.blood_type,
-        email=patient.email,
-        phone=patient.phone,
-        diabetes=patient.diabetes,
-        smoking_status=patient.smoking_status,
-        medications=patient.medications,
-        past_conditions=patient.past_conditions,
-        emergency_contacts=[contact.model_dump() for contact in patient.emergency_contacts],
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    
-    db.add(db_patient)
-    db.commit()
-    db.refresh(db_patient)
+    """Legacy orphan-patient creation is disabled.
 
-    await realtime_manager.broadcast(
-        "patient.created",
-        {
-            "patient_id": db_patient.id,
-            "first_name": db_patient.first_name,
-            "last_name": db_patient.last_name,
-            "created_at": db_patient.created_at,
+    Registration is the supported path because it atomically creates the
+    verified user account and its linked patient record.
+    """
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "error": "patient_creation_via_registration",
+            "message": "Create patient accounts through /auth/register",
         },
     )
-    
-    return db_patient
 
 
-@router.put("/{patient_id}", response_model=PatientSchema)
+@router.put("/{patient_id}", response_model=PatientSchema, dependencies=[Depends(require_patient_owner)])
 async def update_patient(
     patient_id: str,
     patient_update: PatientUpdate,
@@ -645,7 +631,7 @@ async def update_patient(
     return patient
 
 
-@router.delete("/{patient_id}")
+@router.delete("/{patient_id}", dependencies=[Depends(require_patient_owner)])
 async def delete_patient(patient_id: str, db: Session = Depends(get_db)):
     """Delete a patient"""
     patient = db.query(Patient).filter(Patient.id == patient_id).first()

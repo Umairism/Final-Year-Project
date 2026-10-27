@@ -5,6 +5,7 @@ Handles device authentication, schema validation, persistence, prediction execut
 import uuid
 import logging
 import hashlib
+import hmac
 from datetime import datetime
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -69,18 +70,34 @@ class TelemetryIngestionService:
                 detail="Device is currently disabled or disconnected"
             )
 
-        # Check API key hash match if device has a configured key
-        if device.api_key_hash:
-            key_hash = hash_api_key(x_device_api_key)
-            if key_hash != device.api_key_hash:
-                logger.warning(f"Telemetry submission rejected: Invalid API key hash for device {device_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid X-Device-API-Key"
-                )
+        # External hardware must have a provisioned API key. A missing
+        # stored hash is a provisioning failure, never a bypass.
+        if not device.api_key_hash:
+            logger.warning(f"Telemetry submission rejected: No API key configured for device {device_id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid device credentials or unregistered device"
+            )
+
+        if not hmac.compare_digest(hash_api_key(x_device_api_key), device.api_key_hash):
+            logger.warning(f"Telemetry submission rejected: Invalid API key hash for device {device_id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid X-Device-API-Key"
+            )
 
         logger.info(f"Device authenticated successfully: {device_id}")
         return device
+
+    def _get_patient_or_404(self, patient_id: str, device_id: str, db: Session) -> Patient:
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        if not patient:
+            logger.error(f"Telemetry ingestion failed: Patient {patient_id} not found for device {device_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        return patient
 
     async def process_telemetry(
         self,
@@ -88,27 +105,75 @@ class TelemetryIngestionService:
         x_device_api_key: Optional[str],
         db: Session
     ) -> TelemetryResponse:
-        """
-        Processes ingested telemetry payload:
-        1. Authenticate device
-        2. Verify patient link
-        3. Store vital signs in DB
-        4. Execute prediction pipeline (LSTM)
-        5. Execute fusion engine
-        6. Broadcast real-time events
-        """
-        # 1. Device Authentication
+        """Process external ESP32 telemetry after strict device authentication."""
         device = self.authenticate_device(payload.device_id, x_device_api_key, db)
+        patient = self._get_patient_or_404(payload.patient_id, payload.device_id, db)
 
-        # 2. Patient Link Verification
-        patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
-        if not patient:
-            logger.error(f"Telemetry ingestion failed: Patient {payload.patient_id} not found for device {payload.device_id}")
+        if device.patient_id != payload.patient_id:
+            logger.warning(
+                "Telemetry submission rejected: Device %s is not assigned to patient %s",
+                payload.device_id,
+                payload.patient_id,
+            )
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Patient {payload.patient_id} not found"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid device credentials or unregistered device"
             )
 
+        return await self._process_validated_telemetry(payload, device, patient, db)
+
+    async def process_internal_telemetry(
+        self,
+        payload: TelemetryPayload,
+        db: Session,
+        *,
+        authorized_patient_id: str,
+    ) -> TelemetryResponse:
+        """Process telemetry from an already owner-authenticated patient route.
+
+        This trusted internal path must only be called after the route has
+        authenticated the user and verified ownership of the patient. It
+        deliberately does not accept or compare a hardware API key.
+        """
+        if payload.patient_id != authorized_patient_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to submit telemetry for this patient"
+            )
+
+        patient = self._get_patient_or_404(payload.patient_id, payload.device_id, db)
+        device = db.query(Device).filter(Device.device_id == payload.device_id).first()
+        if not device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Device not found"
+            )
+
+        if device.patient_id not in (None, authorized_patient_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device is not assigned to this patient"
+            )
+
+        if not device.connected:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device is currently disabled or disconnected"
+            )
+
+        if device.patient_id is None:
+            device.patient_id = authorized_patient_id
+
+        return await self._process_validated_telemetry(payload, device, patient, db)
+
+    async def _process_validated_telemetry(
+        self,
+        payload: TelemetryPayload,
+        device: Device,
+        patient: Patient,
+        db: Session
+    ) -> TelemetryResponse:
+        """Shared persistence/prediction/broadcast pipeline for validated telemetry."""
         timestamp = payload.timestamp or datetime.utcnow()
         device.connected = True
         device.last_heartbeat = datetime.utcnow()

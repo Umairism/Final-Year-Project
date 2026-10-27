@@ -78,10 +78,27 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), db: Session = Depends(get_db)):
-    if not credentials: raise HTTPException(401, detail={"error": "invalid_token", "message": "Authentication is required"})
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "invalid_token", "message": "Authentication is required"},
+        )
+
     payload = decode_access_token(credentials.credentials)
     user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user or not user.is_active: raise HTTPException(401, detail={"error": "invalid_token", "message": "Invalid or inactive access token"})
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "invalid_token", "message": "Invalid or inactive access token"},
+        )
+
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "email_not_verified", "message": "Email verification is required"},
+        )
+
     return user
 
 

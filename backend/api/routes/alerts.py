@@ -5,16 +5,24 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from api.models.database import Alert, get_db
+from api.models.database import Alert, User, get_db
+from api.routes.auth import get_current_user
 from api.services.realtime import realtime_manager
 
 router = APIRouter()
 
 
 @router.post("/{alert_id}/acknowledge")
-async def acknowledge_alert(alert_id: str, db: Session = Depends(get_db)):
+async def acknowledge_alert(
+    alert_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Acknowledge an alert"""
-    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    alert = db.query(Alert).filter(
+        Alert.id == alert_id,
+        Alert.patient_id == current_user.patient_id,
+    ).first()
     
     if not alert:
         raise HTTPException(
@@ -47,9 +55,16 @@ async def acknowledge_alert(alert_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{alert_id}/dismiss")
-async def dismiss_alert(alert_id: str, db: Session = Depends(get_db)):
+async def dismiss_alert(
+    alert_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Dismiss an alert"""
-    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    alert = db.query(Alert).filter(
+        Alert.id == alert_id,
+        Alert.patient_id == current_user.patient_id,
+    ).first()
     
     if not alert:
         raise HTTPException(

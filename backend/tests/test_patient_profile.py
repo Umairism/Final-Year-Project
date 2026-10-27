@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ from alembic.operations import Operations
 
 from api.app import app
 from api.models.database import Base, get_db
+from api.routes.auth import get_current_user
 from api.models.database.models import Patient
 
 CONTACT = {'name': 'CONTACT_NAME_SENTINEL', 'phone': 'CONTACT_PHONE_SENTINEL',
@@ -28,6 +30,9 @@ def profile_db():
     db.commit()
     previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id='profile-test-user', email='profile@example.com', patient_id='PROFILE',
+        is_active=True, is_email_verified=True)
     try:
         yield db
     finally:
@@ -86,9 +91,9 @@ def test_invalid_profile_updates_are_422(profile_db, payload):
     ('get', '/api/v1/patients/missing/profile', None),
     ('put', '/api/v1/patients/missing', {'diabetes': 'true'}),
 ])
-def test_unknown_profile_is_404(profile_db, method, path, payload):
+def test_other_or_unknown_profile_is_forbidden_for_profile_user(profile_db, method, path, payload):
     response = TestClient(app).request(method, path, **({'json': payload} if payload else {}))
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_contact_migration_backfills_existing_rows():

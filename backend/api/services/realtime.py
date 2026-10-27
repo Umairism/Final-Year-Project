@@ -29,7 +29,10 @@ class RealtimeManager:
     ) -> None:
         await websocket.accept()
         async with self._lock:
-            self._global_connections.add(websocket)
+            # Patient/device subscribers must not silently join the global
+            # stream. Only an explicit global connection belongs there.
+            if not patient_id and not device_id:
+                self._global_connections.add(websocket)
             if patient_id:
                 self._patient_connections[patient_id].add(websocket)
             if device_id:
@@ -81,7 +84,7 @@ class RealtimeManager:
             connections = list(self._patient_connections.get(patient_id, set()))
 
         await self._broadcast_to(connections, message)
-        await self.broadcast(event_type, {"patient_id": patient_id, **payload})
+        # Never mirror patient-scoped events to global subscribers.
 
     async def broadcast_device(self, device_id: str, event_type: str, payload: Dict[str, Any]) -> None:
         message = jsonable_encoder(
@@ -97,7 +100,7 @@ class RealtimeManager:
             connections = list(self._device_connections.get(device_id, set()))
 
         await self._broadcast_to(connections, message)
-        await self.broadcast(event_type, {"device_id": device_id, **payload})
+        # Never mirror device-scoped events to global subscribers.
 
     async def _broadcast_to(self, connections: list[WebSocket], message: Dict[str, Any]) -> None:
         for websocket in connections:

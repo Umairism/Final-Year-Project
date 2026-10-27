@@ -13,6 +13,7 @@ from api.app import app
 from api.models.database import Base, get_db
 from api.models.database.models import Alert, AlertSeverity, BpSource, Device, HealthStatus, Patient, VitalSigns
 from api.routes import ai
+from api.routes.auth import get_current_user
 from api.services import fusion_engine, gemini_service, patient_assistant
 from api.services.patient_assistant import ASSISTANT_SYSTEM_PROMPT, build_patient_context, build_user_prompt
 
@@ -29,6 +30,9 @@ def db():
     session = sessionmaker(bind=engine)()
     previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = lambda: session
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id='assistant-test-user', email='assistant@example.com', patient_id='PA1',
+        is_active=True, is_email_verified=True)
     try:
         yield session
     finally:

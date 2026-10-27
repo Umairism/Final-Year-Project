@@ -1,10 +1,25 @@
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.app import app
 from api.routes import ai
+from api.routes.auth import get_current_user
 from api.services import gemini_service
+
+
+@pytest.fixture(autouse=True)
+def authenticated_user():
+    previous = dict(app.dependency_overrides)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id='ai-chat-test-user', email='ai-chat@example.com', patient_id='PA-TEST',
+        is_active=True, is_email_verified=True)
+    try:
+        yield
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
 
 
 def test_gemini_chat_uses_shared_service(monkeypatch):

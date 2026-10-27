@@ -66,6 +66,27 @@ def setup_database():
     )
     db.add(disabled_device)
 
+    # Seed another patient and a connected device with no configured key.
+    other_patient = Patient(
+        id="p_other",
+        first_name="Jane",
+        last_name="Roe",
+        age=52,
+        gender="female",
+        diabetes="false",
+        smoking_status="non_smoker"
+    )
+    db.add(other_patient)
+
+    nohash_device = Device(
+        device_id="ESP32_NOHASH_003",
+        patient_id="p_12345",
+        device_type=DeviceType.IOT_HARDWARE,
+        connected=True,
+        api_key_hash=None
+    )
+    db.add(nohash_device)
+
     db.commit()
     db.close()
     yield
@@ -142,6 +163,44 @@ def test_telemetry_disabled_device():
     response = client.post("/api/v1/telemetry", json=payload, headers=headers)
     assert response.status_code == 401
     assert "disabled" in response.json()["detail"].lower()
+
+
+def test_telemetry_device_without_configured_key_rejected():
+    """A null stored hash must never accept an arbitrary supplied key."""
+    payload = {
+        "device_id": "ESP32_NOHASH_003",
+        "patient_id": "p_12345",
+        "heart_rate": 78.0,
+        "spo2": 98.0,
+        "temperature": 36.8
+    }
+    headers = {"X-Device-API-Key": "any_key_at_all"}
+    response = client.post("/api/v1/telemetry", json=payload, headers=headers)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid device credentials or unregistered device"
+
+    db = TestingSessionLocal()
+    assert db.query(VitalSigns).filter(VitalSigns.device_id == "ESP32_NOHASH_003").count() == 0
+    db.close()
+
+
+def test_telemetry_correct_key_wrong_patient_rejected():
+    """A valid device key cannot submit telemetry for another patient."""
+    payload = {
+        "device_id": "ESP32_PATIENT_001",
+        "patient_id": "p_other",
+        "heart_rate": 78.0,
+        "spo2": 98.0,
+        "temperature": 36.8
+    }
+    headers = {"X-Device-API-Key": "secret_esp32_key_123"}
+    response = client.post("/api/v1/telemetry", json=payload, headers=headers)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid device credentials or unregistered device"
+
+    db = TestingSessionLocal()
+    assert db.query(VitalSigns).filter(VitalSigns.patient_id == "p_other").count() == 0
+    db.close()
 
 
 # --- 2. Payload & Validation Tests ---

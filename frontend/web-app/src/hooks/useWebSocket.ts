@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { API_CONFIG, WS_TOPICS } from '@/lib/config';
+import { getAccessToken } from '@/lib/authToken';
 
 interface UseWebSocketOptions<T> { topic: string; onMessage: (data: T) => void; onError?: (error: Event) => void; onConnect?: () => void; onDisconnect?: () => void; enabled?: boolean; reconnectInterval?: number; }
 
@@ -13,7 +14,8 @@ export function useWebSocket<T>({ topic, onMessage, onError, onConnect, onDiscon
     if (!enabled || API_CONFIG.useMockData || !mounted.current) return;
     if (ws.current?.readyState === WebSocket.CONNECTING || ws.current?.readyState === WebSocket.OPEN) return;
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-    const socket = new WebSocket(`${API_CONFIG.wsUrl}/${topic}`); ws.current = socket;
+    const token = getAccessToken(); if (!token) return;
+    const socket = new WebSocket(`${API_CONFIG.wsUrl}/${topic}?token=${encodeURIComponent(token)}`); ws.current = socket;
     socket.onopen = () => { backoff.current = 1000; setIsConnected(true); console.log(`WebSocket connected to ${topic}`); connectRef.current?.(); };
     socket.onmessage = (event) => { try { messageRef.current(JSON.parse(event.data) as T); } catch { console.error(`WebSocket message parse failed for ${topic}`); } };
     socket.onerror = (event) => { console.error(`WebSocket error for ${topic}`); errorRef.current?.(event); };

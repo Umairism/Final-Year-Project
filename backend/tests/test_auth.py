@@ -119,11 +119,12 @@ def test_jwt_claims_me_failures_and_deactivated_user():
     db=TestingSession(); db.query(User).filter_by(id=payload["sub"]).update({User.is_active:False}); db.commit(); db.close(); assert client.get("/api/v1/auth/me",headers={"Authorization":"Bearer "+data["access_token"]}).status_code == 401
 
 
-def test_demo_user_is_idempotent_and_enforcement_off():
+def test_demo_user_is_idempotent_and_profile_requires_own_token():
     from api.services.auth_service import ensure_demo_user
     db=TestingSession(); db.add(Patient(id="P001",first_name="Muhammad",last_name="Umair",age=24,gender="Male",email="umair@healsense.com")); db.commit(); user=ensure_demo_user(db); db.commit(); first_hash=user.password_hash; first_count=db.query(User).count(); ensure_demo_user(db); db.commit(); assert db.query(User).count()==first_count and db.query(User).one().password_hash==first_hash and user.is_email_verified and user.patient_id=="P001"; db.close()
-    assert client.post("/api/v1/auth/login",json={"email":"umair@healsense.com","password":"password123"}).status_code == 200
-    assert client.get("/api/v1/patients/P001/profile").status_code == 200
+    login=client.post("/api/v1/auth/login",json={"email":"umair@healsense.com","password":"password123"}); assert login.status_code == 200
+    assert client.get("/api/v1/patients/P001/profile").status_code == 401
+    assert client.get("/api/v1/patients/P001/profile",headers={"Authorization":"Bearer "+login.json()["access_token"]}).status_code == 200
 
 
 def test_missing_secret_is_sanitized_and_restored(monkeypatch):

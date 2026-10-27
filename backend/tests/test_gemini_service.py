@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from api.app import app
 from api.models.database import get_db
 from api.routes import ai
+from api.routes.auth import get_current_user
 from api.services import gemini_service
 
 
@@ -90,6 +91,9 @@ def test_http_api_response_remains_sanitized(mock_google, monkeypatch, status, u
         filter=lambda *args: SimpleNamespace(first=lambda: object())))
     previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = lambda: database
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id='gemini-test-user', email='gemini@example.com', patient_id='mock',
+        is_active=True, is_email_verified=True)
     monkeypatch.setattr(ai, 'build_patient_context', lambda *args: {'available': True})
     monkeypatch.setattr(ai, 'build_user_prompt', lambda *args: 'PRIVATE_PROMPT')
     try:

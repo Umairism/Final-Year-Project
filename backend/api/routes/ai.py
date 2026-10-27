@@ -6,7 +6,8 @@ from datetime import datetime
 import httpx
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from api.models.database import get_db, Patient
+from api.models.database import get_db, Patient, User
+from api.routes.auth import get_current_user
 from api.services.patient_assistant import ASSISTANT_SYSTEM_PROMPT, build_patient_context, build_user_prompt
 import api.services.gemini_service as gemini_service
 from pydantic import BaseModel, Field
@@ -52,7 +53,7 @@ class PatientAssistantResponse(BaseModel):
 
 
 @router.get("/providers")
-async def ai_providers_status():
+async def ai_providers_status(current_user: User = Depends(get_current_user)):
     """Get availability of configured AI providers."""
     settings = get_settings()
     return {
@@ -68,7 +69,7 @@ async def ai_providers_status():
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def ai_chat(payload: ChatRequest):
+async def ai_chat(payload: ChatRequest, current_user: User = Depends(get_current_user)):
     """Unified AI chat endpoint for OpenAI and Gemini."""
     if payload.provider == "openai":
         if not settings.OPENAI_API_KEY:
@@ -124,8 +125,19 @@ async def ai_chat(payload: ChatRequest):
     )
 
 @router.post('/patient-assistant', response_model=PatientAssistantResponse)
-async def patient_assistant(payload: PatientAssistantRequest, db: Session = Depends(get_db)):
-    patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
+async def patient_assistant(
+    payload: PatientAssistantRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    patient = (
+        db.query(Patient)
+        .filter(
+            Patient.id == payload.patient_id,
+            Patient.id == current_user.patient_id,
+        )
+        .first()
+    )
     if patient is None:
         raise HTTPException(404, detail={'error': 'patient_not_found', 'message': 'Patient not found'})
     context = build_patient_context(db, patient)
