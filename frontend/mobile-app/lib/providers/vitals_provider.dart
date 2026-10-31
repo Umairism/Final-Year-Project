@@ -1,106 +1,127 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:healsense/models/bp_entry_result.dart';
 import 'package:healsense/models/vital_reading.dart';
 import 'package:healsense/services/api_service.dart';
 import 'package:healsense/services/realtime_service.dart';
-import 'package:healsense/services/sensor_service.dart';
 
 class VitalsProvider with ChangeNotifier {
-  VitalsProvider({ApiService? apiService, String patientId = 'P001'})
-      : _apiService = apiService ?? ApiService(),
-        _patientId = patientId {
-    _initializeRealtimeAndIot();
-  }
+  VitalsProvider({ApiService? apiService})
+      : _apiService = apiService ?? ApiService();
 
+  final ApiService _apiService;
+  final RealtimeService _realtimeService = RealtimeService();
+
+  String? _patientId;
+  String? _token;
   VitalReading? _currentVitals;
   List<VitalReading> _history = [];
-  String? _deviceId;
   Timer? _pollingTimer;
-  Timer? _iotPushTimer;
   Timer? _pingTimer;
   bool _isLoading = false;
   String? _error;
   bool _isRealtimeConnected = false;
-
-  final ApiService _apiService;
-  final RealtimeService _realtimeService = RealtimeService();
-  final String _patientId;
 
   VitalReading? get currentVitals => _currentVitals;
   List<VitalReading> get history => _history;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isRealtimeConnected => _isRealtimeConnected;
-  String? get deviceId => _deviceId;
+  String? get patientId => _patientId;
 
-  Future<void> _initializeRealtimeAndIot() async {
-    await _registerPhoneAsDevice();
+  /// Configure with authenticated patient ID and JWT token.
+  /// Starts live WebSocket connection and loads initial vitals.
+  Future<void> configure({
+    required String patientId,
+    required String token,
+  }) async {
+    if (_patientId == patientId && _token == token && (_isRealtimeConnected || _isLoading)) {
+      return;
+    }
+
+    clear();
+    _patientId = patientId;
+    _token = token;
+    _apiService.setAuthToken(token);
+
+    _isLoading = true;
+    notifyListeners();
+
+    await refreshLatestVitals();
+    await refreshHistory();
     await _connectRealtime();
-    _startPhoneSensorPush();
-    if (!_isRealtimeConnected) {
-      startPolling();
-    }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  void startPolling() {
+  /// Reset state and tear down all network connections on logout.
+  void clear() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      refreshLatestVitals();
-    });
+    _pollingTimer = null;
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _realtimeService.disconnect();
 
-    refreshLatestVitals();
+    _patientId = null;
+    _token = null;
+    _currentVitals = null;
+    _history = [];
+    _isRealtimeConnected = false;
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
   }
 
-  Future<void> _registerPhoneAsDevice() async {
-    try {
-      _deviceId = await _apiService.registerPhoneDevice(
-        patientId: _patientId,
-        phoneModel: 'Flutter Phone Client',
-        phoneOs: Platform.operatingSystem,
-        sensors: const ['heart_rate', 'spo2', 'temperature'],
-      );
-    } catch (e) {
-      _error = 'Failed to register phone device: $e';
-      notifyListeners();
-    }
+  void _startPollingFallback() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!_isRealtimeConnected && _patientId != null) {
+        refreshLatestVitals();
+      }
+    });
   }
 
   Future<void> _connectRealtime() async {
-    final wsUrl = '${_apiService.wsBaseUrl}/ws/patients/$_patientId';
+    if (_patientId == null || _token == null) return;
+
+    final wsBase = _apiService.wsBaseUrl;
+    final encodedPatient = Uri.encodeComponent(_patientId!);
+    final encodedToken = Uri.encodeComponent(_token!);
+    final wsUrl = '$wsBase/ws/patients/$encodedPatient?token=$encodedToken';
 
     try {
       await _realtimeService.connect(
         wsUrl: wsUrl,
         onEvent: _handleRealtimeEvent,
-        onError: (error) {
+        onError: (err) {
           _isRealtimeConnected = false;
-          _error = 'Realtime connection error: $error';
+          _error = 'Realtime stream disconnected: $err';
           notifyListeners();
-          startPolling();
+          _startPollingFallback();
         },
         onDone: () {
           _isRealtimeConnected = false;
           notifyListeners();
-          startPolling();
+          _startPollingFallback();
         },
       );
 
       _isRealtimeConnected = true;
       _pollingTimer?.cancel();
+      _pollingTimer = null;
       _error = null;
       notifyListeners();
 
       _pingTimer?.cancel();
-      _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
         _realtimeService.sendPing();
       });
     } catch (e) {
       _isRealtimeConnected = false;
-      _error = 'Failed to connect realtime stream: $e';
+      _error = 'Realtime connection failed: $e';
       notifyListeners();
-      startPolling();
+      _startPollingFallback();
     }
   }
 
@@ -110,120 +131,96 @@ class VitalsProvider with ChangeNotifier {
     if (payload is! Map<String, dynamic>) return;
 
     VitalReading? reading;
-    if (eventType == 'patient.vitals.created' && payload['vital'] is Map<String, dynamic>) {
-      reading = _readingFromBackend(Map<String, dynamic>.from(payload['vital'] as Map));
-    } else if (eventType == 'patient.vitals.phone_created') {
-      reading = _readingFromPhoneEvent(payload);
+    if (eventType == 'patient.vitals.created') {
+      final rawVital = payload['vital'];
+      if (rawVital is Map<String, dynamic>) {
+        reading = VitalReading.fromJson(Map<String, dynamic>.from(rawVital));
+      } else {
+        reading = VitalReading.fromJson(payload);
+      }
     }
 
     if (reading != null) {
-      _currentVitals = reading;
-      _history = [reading, ..._history].take(120).toList();
-      _checkThresholds(reading);
-      notifyListeners();
+      _mergeReading(reading);
     }
   }
 
-  VitalReading _readingFromBackend(Map<String, dynamic> json) {
-    final systolic = json['systolic_bp'] as num?;
-    final diastolic = json['diastolic_bp'] as num?;
-    return VitalReading(
-      heartRate: (json['heart_rate'] as num?)?.toDouble() ?? 0,
-      spo2: (json['spo2'] as num?)?.toDouble() ?? 0,
-      temperature: (json['temperature'] as num?)?.toDouble() ?? 0,
-      bloodPressure: (systolic == null || diastolic == null)
-          ? 'Not measured'
-          : '${systolic.toStringAsFixed(0)}/${diastolic.toStringAsFixed(0)}',
-      respiratoryRate: (json['respiratory_rate'] as num?)?.toDouble() ?? 0,
-      timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ?? DateTime.now(),
-    );
-  }
+  /// Deduplicate reading by ID and preserve chronological order.
+  void _mergeReading(VitalReading reading) {
+    _currentVitals = reading;
 
-  VitalReading _readingFromPhoneEvent(Map<String, dynamic> json) {
-    return VitalReading(
-      heartRate: (json['heart_rate'] as num?)?.toDouble() ?? 0,
-      spo2: (json['spo2'] as num?)?.toDouble() ?? 0,
-      temperature: (json['temperature'] as num?)?.toDouble() ?? 0,
-      // Phone sensors cannot measure BP — never display a placeholder 120/80.
-      bloodPressure: 'Not measured',
-      respiratoryRate: 16,
-      timestamp: DateTime.now(),
-    );
-  }
+    final updated = <VitalReading>[];
+    bool replaced = false;
 
-  void _startPhoneSensorPush() {
-    _iotPushTimer?.cancel();
-    _iotPushTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
-      if (_deviceId == null) return;
+    for (final item in _history) {
+      final isSameId = reading.id != null && item.id != null && reading.id == item.id;
+      final isSameTs = reading.id == null && reading.timestamp.millisecondsSinceEpoch == item.timestamp.millisecondsSinceEpoch;
 
-      try {
-        final measuredHeartRate = await SensorService.getHeartRate();
-        final base = _currentVitals;
-        final heartRate = measuredHeartRate > 0 ? measuredHeartRate : (base?.heartRate ?? 72);
-        final spo2 = base?.spo2 ?? 98;
-        final temperature = base?.temperature ?? 36.8;
-
-        await _apiService.pushPhoneVitals(
-          patientId: _patientId,
-          deviceId: _deviceId!,
-          heartRate: heartRate,
-          spo2: spo2,
-          temperature: temperature,
-          activityContext: 'resting',
-          accuracy: measuredHeartRate > 0 ? 0.95 : 0.75,
-        );
-      } catch (e) {
-        _error = 'IoT push failed: $e';
-        notifyListeners();
+      if (isSameId || isSameTs) {
+        updated.add(reading);
+        replaced = true;
+      } else {
+        updated.add(item);
       }
-    });
+    }
+
+    if (!replaced) {
+      updated.add(reading);
+    }
+
+    // Sort descending for display history (newest first)
+    updated.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    _history = updated.take(120).toList();
+
+    _checkThresholds(reading);
+    notifyListeners();
   }
 
   void _checkThresholds(VitalReading vitals) {
-    if (vitals.heartRate < 60 || vitals.heartRate > 100) {
-      _triggerLocalAlert("Heart Rate", vitals.heartRate.toString(), "Irregular Heart Rate detected");
+    if (vitals.heartRate < 40 || vitals.heartRate > 140) {
+      debugPrint('ALERT: Heart Rate ${vitals.heartRate} out of range');
     }
     if (vitals.spo2 < 90) {
-      _triggerLocalAlert("SpO2", vitals.spo2.toString(), "Critical SpO2 levels!");
+      debugPrint('ALERT: Critical SpO2 level ${vitals.spo2}%');
     }
-    if (vitals.temperature > 37.5) {
-      _triggerLocalAlert("Temperature", vitals.temperature.toString(), "High Fever detected");
+    if (vitals.temperature > 38.5) {
+      debugPrint('ALERT: High Temperature ${vitals.temperature}°C');
     }
-  }
-
-  void _triggerLocalAlert(String type, String value, String message) {
-    debugPrint("ALERT: $type - $value: $message");
   }
 
   Future<void> refreshLatestVitals() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    if (_patientId == null) return;
     try {
-      final newVitals = await _apiService.fetchLatestVitals(_patientId);
-      _currentVitals = newVitals;
-      _checkThresholds(newVitals);
+      final latest = await _apiService.fetchLatestVitals(_patientId!);
+      _mergeReading(latest);
+      _error = null;
     } catch (e) {
-      _error = 'Failed to fetch latest vitals: $e';
+      // 404 is normal when no readings exist yet for this patient
+      if (!e.toString().contains('404')) {
+        _error = 'Failed to fetch latest vitals: $e';
+      }
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> refreshHistory({int minutes = 60}) async {
+  Future<void> refreshHistory({int minutes = 120}) async {
+    if (_patientId == null) return;
     try {
-      _history = await _apiService.fetchVitalHistory(_patientId, minutes: minutes);
-      notifyListeners();
+      final list = await _apiService.fetchVitalHistory(_patientId!, minutes: minutes);
+      for (final r in list) {
+        _mergeReading(r);
+      }
+      _error = null;
     } catch (e) {
-      _error = 'Failed to fetch vital history: $e';
+      if (!e.toString().contains('404')) {
+        _error = 'Failed to fetch vitals history: $e';
+      }
+    } finally {
       notifyListeners();
     }
   }
 
-  /// Records an intermittent BP reading (Braun ExactFit 1 / manual entry) and
-  /// refreshes the dashboard so the new BP shows up immediately.
   Future<BpEntryResult> recordBloodPressure({
     required double systolic,
     required double diastolic,
@@ -231,40 +228,47 @@ class VitalsProvider with ChangeNotifier {
     double? heartRate,
     double? spo2,
     double? temperature,
+    String bpSource = 'manual_entry',
     String? note,
   }) async {
+    if (_patientId == null) throw Exception('No authenticated patient profile.');
+
     final result = await _apiService.recordBloodPressure(
-      patientId: _patientId,
+      patientId: _patientId!,
       systolic: systolic,
       diastolic: diastolic,
       pulse: pulse,
       heartRate: heartRate,
       spo2: spo2,
       temperature: temperature,
+      bpSource: bpSource,
       note: note,
     );
 
     await refreshLatestVitals();
-    await refreshHistory(minutes: 120);
     return result;
   }
 
+  Future<BpEntryResult> submitBloodPressure({
+    required double systolic,
+    required double diastolic,
+    double? pulse,
+    String? note,
+  }) => recordBloodPressure(
+    systolic: systolic,
+    diastolic: diastolic,
+    pulse: pulse,
+    note: note,
+  );
+
   Future<void> triggerEmergency() async {
-    try {
-      await _apiService.triggerEmergency(_patientId);
-    } catch (e) {
-      _error = 'Failed to trigger emergency: $e';
-      notifyListeners();
-      rethrow;
-    }
+    if (_patientId == null) throw Exception('No authenticated patient profile.');
+    await _apiService.triggerEmergency(_patientId!);
   }
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
-    _iotPushTimer?.cancel();
-    _pingTimer?.cancel();
-    _realtimeService.disconnect();
+    clear();
     super.dispose();
   }
 }

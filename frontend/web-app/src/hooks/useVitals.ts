@@ -5,6 +5,7 @@ import { API_CONFIG } from '@/lib/config';
 import { VitalReading, VitalStatus, DEFAULT_THRESHOLDS, Alert } from '@/types/vitals';
 import { useVitalsWebSocket } from '@/hooks/useWebSocket';
 import { AlertActions, visibleAlerts } from '@/lib/alerts';
+import { mergeVitalReadings } from '@/lib/vitalsReadings';
 
 const generateId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -111,7 +112,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
   // Update readings when historical data is fetched
   useEffect(() => {
     if (historicalData && !useMockData) {
-      setReadings(historicalData);
+      setReadings((prev) => mergeVitalReadings(prev, historicalData));
       setIsConnected(true);
     }
   }, [historicalData, useMockData]);
@@ -173,7 +174,7 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
     }
     const reading = toVitalReading(payload?.vital ?? payload);
     if (!reading.heartRate && !reading.spo2 && !reading.temperature) return;
-    setReadings((prev) => [...prev, reading].slice(-60));
+    setReadings((prev) => mergeVitalReadings(prev, reading));
     checkForAlerts(reading);
   }, [checkForAlerts, useMockData, confirmedActions]);
 
@@ -207,80 +208,37 @@ export const useVitals = ({ patientId, useMockData = API_CONFIG.useMockData }: U
         return false;
       }
     }
-    
+
     confirmedActions.set(alertId, { ...confirmedActions.get(alertId), dismissed: true });
     setAlerts(prev => visibleAlerts(prev, confirmedActions));
     return true;
   }, [useMockData, confirmedActions]);
 
-  // Real-time updates via polling (for mock data)
+  // Periodic updates for mock data only
   useEffect(() => {
     if (!useMockData) return;
 
     const interval = setInterval(() => {
-      const newReading = generateVitalReading(readings[readings.length - 1]);
-      
       setReadings((prev) => {
-        const updated = [...prev, newReading];
-        return updated.slice(-60);
+        const newReading = generateVitalReading(prev[prev.length - 1]);
+        checkForAlerts(newReading);
+        return [...prev.slice(1), newReading];
       });
-
-      checkForAlerts(newReading);
     }, API_CONFIG.pollingInterval);
 
     return () => clearInterval(interval);
-  }, [readings, checkForAlerts, useMockData]);
-
-  // Real-time updates via API polling (when backend is ready)
-  useEffect(() => {
-    if (useMockData || !patientId) return;
-
-    const interval = setInterval(async () => {
-      if (isRealtimeConnected) {
-        setIsConnected(true);
-        return;
-      }
-
-      try {
-        const latestReading = await vitalsApi.getLatest(patientId);
-        setReadings((prev) => {
-          const updated = [...prev, latestReading];
-          return updated.slice(-60);
-        });
-        checkForAlerts(latestReading);
-        setIsConnected(true);
-      } catch (error) {
-        console.error('Failed to fetch latest vitals:', error);
-        setIsConnected(false);
-      }
-    }, API_CONFIG.pollingInterval);
-
-    return () => clearInterval(interval);
-  }, [patientId, checkForAlerts, useMockData, isRealtimeConnected]);
-
-  // Simulate connection status (for mock data only)
-  useEffect(() => {
-    if (!useMockData) return;
-    const interval = setInterval(() => {
-      if (Math.random() < 0.05) {
-        setIsConnected(false);
-        setTimeout(() => setIsConnected(true), 2000);
-      }
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [useMockData]);
+  }, [useMockData, checkForAlerts]);
 
   return {
-    currentReading,
     readings,
+    currentReading,
     alerts,
     isConnected,
     isRealtimeConnected,
     acknowledgeAlert,
     dismissAlert,
+    refetchHistory,
     isLoadingHistory,
     isHistoryError,
-    refetchHistory,
   };
 };

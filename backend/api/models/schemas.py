@@ -82,6 +82,7 @@ class VitalSigns(VitalSignsBase):
     """Vital signs response model"""
     id: str
     patient_id: str
+    device_id: Optional[str] = None
     timestamp: datetime
     status: HealthStatus
     risk_score: Optional[float] = None

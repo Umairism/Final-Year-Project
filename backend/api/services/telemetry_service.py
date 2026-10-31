@@ -22,6 +22,7 @@ from api.models.schemas import (
 from api.services.prediction_service import prediction_service
 from api.services.fusion_engine import fusion_engine
 from api.services.realtime import realtime_manager
+from api.services.vital_serialization import serialize_vital
 from api.config import get_settings
 
 def resolve_data_origin(requested, allow_simulated):
@@ -253,17 +254,14 @@ class TelemetryIngestionService:
         if fused_decision["final_risk_level"] in ["warning", "critical"]:
             explanation = await fusion_engine.generate_explanation(patient, fused_decision)
 
-        # 6. Realtime WebSocket Broadcast
+        # 6. Realtime WebSocket Broadcast - exactly one canonical patient event
         await realtime_manager.broadcast_patient(
             payload.patient_id,
-            "telemetry.ingested",
+            "patient.vitals.created",
             {
-                "vital_id": db_vitals.id,
+                "vital": serialize_vital(db_vitals),
                 "device_id": payload.device_id,
-                "status": db_vitals.status.value,
                 "fused_decision": fused_decision,
-                "delayed_sync": payload.delayed_sync,
-                "timestamp": timestamp.isoformat()
             }
         )
 

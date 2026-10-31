@@ -43,6 +43,7 @@ from api.models.schemas import BpEntryRequest, BpEntryResponse, HealthStatus
 from api.services.fusion_engine import fusion_engine
 from api.services.prediction_service import prediction_service
 from api.services.realtime import realtime_manager
+from api.services.vital_serialization import serialize_vital
 
 logger = logging.getLogger(__name__)
 
@@ -93,21 +94,8 @@ def classify_bp(systolic: float, diastolic: float) -> str:
 
 
 def _serialize_vital(vital: VitalSigns) -> Dict[str, Any]:
-    """Shape a VitalSigns row the way the Flutter realtime handler expects."""
-    return {
-        "id": vital.id,
-        "patient_id": vital.patient_id,
-        "device_id": vital.device_id,
-        "heart_rate": vital.heart_rate,
-        "spo2": vital.spo2,
-        "temperature": vital.temperature,
-        "systolic_bp": vital.systolic_bp,
-        "diastolic_bp": vital.diastolic_bp,
-        "respiratory_rate": vital.respiratory_rate,
-        "bp_source": vital.bp_source.value if vital.bp_source else None,
-        "timestamp": vital.timestamp.isoformat() if vital.timestamp else None,
-        "status": vital.status.value if vital.status else None,
-    }
+    """Shape a VitalSigns row using the shared canonical vital serializer."""
+    return serialize_vital(vital)
 
 
 def _ensure_device(db: Session, patient_id: str, device_id: Optional[str]) -> Device:
@@ -315,7 +303,11 @@ class BpEntryService:
         await realtime_manager.broadcast_patient(
             patient_id,
             "patient.vitals.created",
-            {"vital": _serialize_vital(vital_row)},
+            {
+                "vital": serialize_vital(vital_row),
+                "device_id": vital_row.device_id,
+                "fused_decision": fused,
+            },
         )
         await realtime_manager.broadcast_patient(
             patient_id,

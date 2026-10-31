@@ -12,6 +12,7 @@ export interface TelemetryPayload {
   bp_source?: BpSource;
   delayed_sync?: boolean;
   timestamp?: string;
+  data_origin?: 'device' | 'simulated' | string;
 }
 
 export interface FusedDecision {
@@ -31,6 +32,40 @@ export interface TelemetryResponse {
   status: HealthStatus;
   fused_decision: FusedDecision;
   explanation?: string | null;
+}
+
+export interface SerializedVital {
+  id: string;
+  patient_id: string;
+  device_id?: string | null;
+  heart_rate: number;
+  spo2: number;
+  temperature: number;
+  systolic_bp?: number | null;
+  diastolic_bp?: number | null;
+  respiratory_rate?: number | null;
+  bp_source?: BpSource | string | null;
+  delayed_sync?: boolean;
+  timestamp?: string | null;
+  status?: HealthStatus | string | null;
+  risk_score?: number | null;
+  prediction_confidence?: number | null;
+  full_probability_distribution?: Record<string, number> | null;
+  model_version?: string | null;
+  data_origin?: string;
+}
+
+export interface PatientVitalsCreatedPayload {
+  vital: SerializedVital;
+  device_id?: string | null;
+  fused_decision?: FusedDecision;
+}
+
+export interface PatientVitalsCreatedEvent {
+  event_type: 'patient.vitals.created' | string;
+  timestamp: string;
+  patient_id: string;
+  payload: PatientVitalsCreatedPayload;
 }
 
 export interface VitalReading {

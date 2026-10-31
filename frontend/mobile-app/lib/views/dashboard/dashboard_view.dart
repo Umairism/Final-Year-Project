@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:healsense/providers/auth_provider.dart';
 import 'package:healsense/providers/vitals_provider.dart';
 import 'package:healsense/views/bp/bp_entry_view.dart';
 import 'package:healsense/widgets/vital_card.dart';
@@ -37,7 +38,7 @@ class DashboardView extends StatelessWidget {
                         return ListTile(
                           dense: true,
                           title: Text('HR ${vital.heartRate.toStringAsFixed(0)} | SpO2 ${vital.spo2.toStringAsFixed(0)}%'),
-                          subtitle: Text('Temp ${vital.temperature.toStringAsFixed(1)}C  BP ${vital.bloodPressure}  RR ${vital.respiratoryRate.toStringAsFixed(0)}'),
+                          subtitle: Text('Temp ${vital.temperature.toStringAsFixed(1)}°C  BP ${vital.bloodPressure}  RR ${vital.respiratoryRate.toStringAsFixed(0)}'),
                           trailing: Text(time),
                         );
                       },
@@ -55,9 +56,13 @@ class DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('HealSense Dashboard'),
+        title: Text(authProvider.fullName != null && authProvider.fullName!.isNotEmpty
+            ? '${authProvider.fullName} - Dashboard'
+            : 'HealSense Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.monitor_heart),
@@ -67,9 +72,16 @@ class DashboardView extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              // Navigate to profile
+            icon: const Icon(Icons.history),
+            tooltip: 'View history',
+            onPressed: () => _showHistoryDialog(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () async {
+              context.read<VitalsProvider>().clear();
+              await context.read<AuthProvider>().logout();
             },
           ),
         ],
@@ -78,8 +90,42 @@ class DashboardView extends StatelessWidget {
         builder: (context, vitalsProvider, child) {
           final vitals = vitalsProvider.currentVitals;
 
-          if (vitals == null) {
+          if (vitalsProvider.isLoading && vitals == null) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (vitals == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.sensors_outlined, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Waiting for Telemetry',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Connect ESP32 hardware to stream live vitals for patient ${vitalsProvider.patientId ?? authProvider.patientId ?? ""}.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        vitalsProvider.refreshLatestVitals();
+                        vitalsProvider.refreshHistory();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           return RefreshIndicator(
@@ -129,8 +175,8 @@ class DashboardView extends StatelessWidget {
                         ),
                       ),
                       Chip(
-                        avatar: const Icon(Icons.memory, size: 18),
-                        label: Text(vitalsProvider.deviceId ?? 'IoT device pending'),
+                        avatar: const Icon(Icons.badge, size: 18),
+                        label: Text('Patient: ${vitalsProvider.patientId ?? authProvider.patientId ?? "N/A"}'),
                       ),
                     ],
                   ),
@@ -166,106 +212,122 @@ class DashboardView extends StatelessWidget {
                       VitalCard(
                         label: 'Blood Pressure',
                         value: vitals.bloodPressure,
-                        unit: 'mmHg',
+                        unit: vitals.bloodPressure == 'Not measured' ? '' : 'mmHg',
                         icon: Icons.speed,
-                        color: Colors.purple,
+                        color: AppTheme.primaryTeal,
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const ListTile(
-                            leading: Icon(Icons.speed),
-                            title: Text('Log Blood Pressure'),
-                            subtitle: Text('Cuff reading — Braun ExactFit 1'),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const BpEntryView()),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Recent History',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('View Full'),
+                        onPressed: () => _showHistoryDialog(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (vitalsProvider.history.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Center(
+                        child: Text('No historical readings yet.'),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: vitalsProvider.history.length > 5 ? 5 : vitalsProvider.history.length,
+                      itemBuilder: (context, index) {
+                        final vital = vitalsProvider.history[index];
+                        final time =
+                            '${vital.timestamp.hour.toString().padLeft(2, '0')}:${vital.timestamp.minute.toString().padLeft(2, '0')}:${vital.timestamp.second.toString().padLeft(2, '0')}';
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.teal.shade50,
+                              child: const Icon(Icons.monitor_heart, color: Colors.teal),
                             ),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Enter systolic / diastolic'),
+                            title: Text('HR ${vital.heartRate.toStringAsFixed(0)} bpm  |  SpO2 ${vital.spo2.toStringAsFixed(0)}%'),
+                            subtitle: Text('Temp ${vital.temperature.toStringAsFixed(1)}°C  |  BP: ${vital.bloodPressure}'),
+                            trailing: Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                           ),
-                        ],
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: const Text('TRIGGER EMERGENCY ALERT', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Trigger Emergency Alert?'),
+                            content: const Text(
+                              'This will notify emergency contacts and log a priority alert event.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('CANCEL'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('CONFIRM'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && context.mounted) {
+                          try {
+                            await vitalsProvider.triggerEmergency();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Emergency alert sent successfully.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to trigger emergency: $e')),
+                              );
+                            }
+                          }
+                        }
+                      },
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const ListTile(
-                            leading: Icon(Icons.history),
-                            title: Text('Vital History'),
-                            subtitle: Text('View trends over the last 24 hours'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => _showHistoryDialog(context),
-                            child: const Text('View Charts'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showEmergencyDialog(context),
-        label: const Text('EMERGENCY'),
-        icon: const Icon(Icons.warning),
-        backgroundColor: AppTheme.criticalRed,
-      ),
-    );
-  }
-
-  void _showEmergencyDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Trigger Emergency?'),
-        content: const Text('This will alert your emergency contacts and medical services.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              final messenger = ScaffoldMessenger.of(context);
-              final vitalsProvider = context.read<VitalsProvider>();
-
-              Navigator.pop(context);
-
-              try {
-                await vitalsProvider.triggerEmergency();
-                if (navigator.context.mounted) {
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Emergency Alert Sent!')),
-                  );
-                }
-              } catch (_) {
-                if (navigator.context.mounted) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(vitalsProvider.error ?? 'Failed to send emergency alert')),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.criticalRed),
-            child: const Text('CONFIRM'),
-          ),
-        ],
       ),
     );
   }

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RealtimeService {
-  WebSocket? _socket;
+  WebSocketChannel? _channel;
   StreamSubscription? _subscription;
 
-  bool get isConnected => _socket != null;
+  bool get isConnected => _channel != null;
 
   Future<void> connect({
     required String wsUrl,
@@ -16,36 +16,52 @@ class RealtimeService {
   }) async {
     await disconnect();
 
-    final socket = await WebSocket.connect(wsUrl);
-    _socket = socket;
+    try {
+      final uri = Uri.parse(wsUrl);
+      final channel = WebSocketChannel.connect(uri);
+      _channel = channel;
 
-    _subscription = socket.listen(
-      (data) {
-        try {
-          final decoded = jsonDecode(data as String);
-          if (decoded is Map<String, dynamic>) {
-            onEvent(decoded);
+      _subscription = channel.stream.listen(
+        (data) {
+          try {
+            final decoded = jsonDecode(data.toString());
+            if (decoded is Map<String, dynamic>) {
+              onEvent(decoded);
+            }
+          } catch (_) {
+            // Ignore malformed frames
           }
-        } catch (_) {
-          // Ignore invalid frames
-        }
-      },
-      onError: (error) => onError?.call(error),
-      onDone: () => onDone?.call(),
-      cancelOnError: true,
-    );
+        },
+        onError: (error) {
+          onError?.call(error);
+        },
+        onDone: () {
+          onDone?.call();
+        },
+        cancelOnError: true,
+      );
+    } catch (e) {
+      onError?.call(e);
+      rethrow;
+    }
   }
 
-  Future<void> sendPing() async {
-    if (_socket != null) {
-      _socket!.add('ping');
+  void sendPing() {
+    if (_channel != null) {
+      try {
+        _channel!.sink.add('ping');
+      } catch (_) {
+        // Ignore sink errors if closing
+      }
     }
   }
 
   Future<void> disconnect() async {
     await _subscription?.cancel();
     _subscription = null;
-    await _socket?.close();
-    _socket = null;
+    try {
+      await _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
   }
 }

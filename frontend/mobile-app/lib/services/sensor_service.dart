@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class SensorService {
@@ -8,7 +9,7 @@ class SensorService {
       final double heartRate = await _channel.invokeMethod('getHeartRate');
       return heartRate;
     } on PlatformException catch (e) {
-      print("Failed to get heart rate: '${e.message}'.");
+      debugPrint("Failed to get heart rate: '${e.message}'.");
       return 0.0;
     }
   }
@@ -17,7 +18,7 @@ class SensorService {
     try {
       await _channel.invokeMethod('startHeartRateService');
     } on PlatformException catch (e) {
-      print("Failed to start heart rate service: '${e.message}'.");
+      debugPrint("Failed to start heart rate service: '${e.message}'.");
     }
   }
 }

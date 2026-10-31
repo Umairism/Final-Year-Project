@@ -9,14 +9,31 @@ class ApiService {
             baseUrl: baseUrl ??
                 const String.fromEnvironment(
                   'HEALSENSE_API_BASE_URL',
-                  defaultValue: 'http://10.10.86.33:5000/api/v1',
+                  defaultValue: 'http://127.0.0.1:5000/api/v1',
                 ),
             connectTimeout: const Duration(seconds: 8),
             receiveTimeout: const Duration(seconds: 8),
+            headers: {'Content-Type': 'application/json'},
           ),
-        );
+        ) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (_authToken != null && _authToken!.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $_authToken';
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+  }
 
   final Dio _dio;
+  String? _authToken;
+
+  void setAuthToken(String? token) {
+    _authToken = token;
+  }
 
   String get wsBaseUrl {
     final api = _dio.options.baseUrl;
@@ -26,29 +43,68 @@ class ApiService {
     return api.replaceFirst('http://', 'ws://').replaceFirst('/api/v1', '');
   }
 
-  VitalReading _mapVital(Map<String, dynamic> json) {
-    final systolic = json['systolic_bp'] as num?;
-    final diastolic = json['diastolic_bp'] as num?;
-
-    return VitalReading(
-      heartRate: (json['heart_rate'] as num?)?.toDouble() ?? 0,
-      spo2: (json['spo2'] as num?)?.toDouble() ?? 0,
-      temperature: (json['temperature'] as num?)?.toDouble() ?? 0,
-      // A missing BP is "not measured", never 0/0.
-      bloodPressure: (systolic == null || diastolic == null)
-          ? 'Not measured'
-          : '${systolic.toStringAsFixed(0)}/${diastolic.toStringAsFixed(0)}',
-      respiratoryRate: (json['respiratory_rate'] as num?)?.toDouble() ?? 0,
-      timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ?? DateTime.now(),
-    );
+  /// Authenticate with email and password to receive a JWT access token.
+  Future<Map<String, dynamic>> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {
+          'email': email.trim().toLowerCase(),
+          'password': password,
+        },
+      );
+      final data = Map<String, dynamic>.from(response.data as Map);
+      return data;
+    } on DioException catch (e) {
+      final detail = e.response?.data;
+      if (detail is Map && detail['detail'] != null) {
+        final d = detail['detail'];
+        if (d is Map && d['message'] != null) {
+          throw Exception(d['message']);
+        }
+        if (d is String) throw Exception(d);
+      }
+      throw Exception('Login failed: ${e.message}');
+    }
   }
 
-  /// Posts an intermittent BP reading from a cuff (Braun ExactFit 1, BLE cuff)
-  /// or from clinician entry.
-  ///
-  /// [heartRate], [spo2] and [temperature] are only used by the backend when
-  /// there is no wearable reading to attach the BP to; pass them to allow a
-  /// standalone entry.
+  /// Get current authenticated user profile (/auth/me)
+  Future<Map<String, dynamic>> getMe() async {
+    try {
+      final response = await _dio.get('/auth/me');
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw Exception('Failed to fetch user profile: ${e.message}');
+    }
+  }
+
+  /// Fetches latest vitals for the authenticated patient.
+  Future<VitalReading> fetchLatestVitals(String patientId) async {
+    try {
+      final response = await _dio.get('/patients/$patientId/vitals/latest');
+      final data = Map<String, dynamic>.from(response.data as Map);
+      return VitalReading.fromJson(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fetches historical vitals for the authenticated patient.
+  Future<List<VitalReading>> fetchVitalHistory(String patientId, {int minutes = 60}) async {
+    try {
+      final response = await _dio.get('/patients/$patientId/vitals/history?minutes=$minutes');
+      return (response.data as List)
+          .map((item) => VitalReading.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Posts an intermittent BP reading from a cuff or clinician entry.
   Future<BpEntryResult> recordBloodPressure({
     required String patientId,
     required double systolic,
@@ -100,7 +156,6 @@ class ApiService {
       }
     }
 
-    // FastAPI validation errors arrive as a list of {msg, loc, ...}.
     if (data is Map && data['detail'] is List && (data['detail'] as List).isNotEmpty) {
       final first = (data['detail'] as List).first;
       if (first is Map) {
@@ -111,77 +166,9 @@ class ApiService {
     return BpEntryException(message: e.message ?? 'Failed to record blood pressure');
   }
 
-  Future<VitalReading> fetchLatestVitals(String patientId) async {
-    try {
-      final response = await _dio.get('/patients/$patientId/vitals/latest');
-      return _mapVital(Map<String, dynamic>.from(response.data));
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<List<VitalReading>> fetchVitalHistory(String patientId, {int minutes = 60}) async {
-    try {
-      final response = await _dio.get('/patients/$patientId/vitals/history?minutes=$minutes');
-      return (response.data as List)
-          .map((item) => _mapVital(Map<String, dynamic>.from(item as Map)))
-          .toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   Future<void> triggerEmergency(String patientId) async {
     try {
       await _dio.post('/patients/$patientId/emergency');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<String> registerPhoneDevice({
-    required String patientId,
-    required String phoneModel,
-    required String phoneOs,
-    required List<String> sensors,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/devices/register/phone',
-        data: {
-          'patient_id': patientId,
-          'phone_model': phoneModel,
-          'phone_os': phoneOs,
-          'sensors': sensors,
-        },
-      );
-      return (response.data['device_id'] as String?) ?? 'PHONE_$patientId';
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> pushPhoneVitals({
-    required String patientId,
-    required String deviceId,
-    required double heartRate,
-    required double spo2,
-    required double temperature,
-    String activityContext = 'resting',
-    double accuracy = 0.9,
-  }) async {
-    try {
-      await _dio.post(
-        '/patients/$patientId/vitals/phone',
-        queryParameters: {
-          'device_id': deviceId,
-          'heart_rate': heartRate,
-          'spo2': spo2,
-          'temperature': temperature,
-          'activity_context': activityContext,
-          'accuracy': accuracy,
-        },
-      );
     } catch (e) {
       rethrow;
     }
